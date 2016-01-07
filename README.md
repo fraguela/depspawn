@@ -3,10 +3,10 @@
 A library for parallelizing applications by means of tasks that automatically respect their data dependencies.
 
 Website: [http://depspawn.des.udc.es](http://depspawn.des.udc.es)
+Documentation: [http://fraguela.github.io/depspawn/](http://fraguela.github.io/depspawn/)
 
 ### Requirements
 
-Depspawn requires
 
  * A C++ compiler that supports C++11
  * [Intel (R) Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above
@@ -20,7 +20,7 @@ Depspawn requires
 
 Intel TBB must be configured before building or using DepSpawn. This requires setting up some environment variables both to be compiled and to be used by an application during its execution. This usually requires executing the script 
  
-- `${TBBROOT}/bin/tbbvars.sh` if your shell is `bash`/`ksh`, or
+ - `${TBBROOT}/bin/tbbvars.sh` if your shell is `bash`/`ksh`, or
  - `${TBBROOT}/bin/tbbvars.csh` if your shell is `csh`
 
  where `${TBBROOT}` is the directory where TBB has been installed. The file includes the definition of the variable `TBBROOT`, which must point to the directory where TBB has been installed, but it is usually left empty during the installation. For this reason right after intalling TBB you must edit this file to define this variable. In order to do this, open the file and look for a line like
@@ -90,6 +90,5 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
 
 ### Documentation
 
-The best source for understanding in depth the DepSpawn programming model is the publication [A framework for argument-based task synchronization with automatic detection of dependencies](http://www.des.udc.es/~basilio/papers/Gonzalez13-DepSpawn.pdf) ([DOI 10.1016/j.parco.2013.04.012](http://dx.doi.org/10.1016/j.parco.2013.04.012)), although it misses some of the new synchronization mechanisms added in version 2.0.
+The best source for starting with DepSpawn is its [documentation](http://fraguela.github.io/depspawn/), which includes a step-by-step introduction that covers its semantics and API and discusses several interesting tips and tricks. A more detailed description of the DepSpawn programming model can be found the publication [A framework for argument-based task synchronization with automatic detection of dependencies](http://www.des.udc.es/~basilio/papers/Gonzalez13-DepSpawn.pdf) ([DOI 10.1016/j.parco.2013.04.012](http://dx.doi.org/10.1016/j.parco.2013.04.012)), although it lacks some of the new synchronization mechanisms added in version 1.0.
 
-The documentation that comes with the distribution contains a step-by-step introduction to DepSpawn. While this introduction covers the basic semantics topics more cursorily than the paper, it discusses several interesting tips, tricks and new features of the library that did not exist when the paper was published.
