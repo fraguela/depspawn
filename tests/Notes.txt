@@ -1,0 +1,76 @@
+- mxv.cpp
+  mxm.cpp
+  Simple tests using Arrays. mxm uses rectangular regions, but all the tasks are independent. mxv uses consecutive regions, but there are dependent tasks.
+
+- mxv_basic.cpp
+  Prove respect of dependency based on argument references to array types.
+
+- mxv_basic_orix.cpp
+  Deprecated version that relied on argument pointer to array types. Dimissed in favor of more consistent semantics based on references exemplified in mxv_basic.cpp.
+
+- super_simple_test.cpp
+  Spawns a single task and checks it was run.
+
+- test_array.cpp
+  Tests of usage of normal C arrays to track dependencies with spawn.
+
+- test_array_sizes.cpp
+  Test on detection of sizes of arguments and parameters (does not test spawns).
+
+- test_blitz_array.cpp
+  Test on blitz::Array with dependent tasks and rectangular regions.
+
+- test_by_value.cpp
+  Shows that spawn with input by value waits for preceding function that writes to that input.
+
+- test_dep_for_basicchild_boostfunc.cpp:
+  Deprecated because we now support std::function instead of boost::function.
+  This only affects "typedef NAMESPACE::function<signature> type;" inside function_type<F>.
+  Replaced by test_dep_for_basicchild_stdfunc.cpp
+
+- test_dep_for_basicchild_stdfunc.cpp
+  Shows trick of making child h wait for preceding function f even when its parent g1/g2 does not wait for it.
+  The reason is that g1 and g2 get the argument by pointer, while f and h use references.
+  The first test used to be unsuccessful because the second parameter of h, s, was 0 instead of 10 because it is taken from g1 stack. Since g1 has finished, the value is invalid. This problem was solved with an overload template<typename T> struct ref<T&&> { static inline T& make(T& t) { return t; } };
+  In the second test the problem of the scope is solved using an std::function with a binded argument for the local argument. 
+
+- test_donot_wait_for_ancestors.cpp
+  Shows that a task should not wait for its ancestors to finish before running.
+
+- test_ignore.cpp
+  Tests that Ignore avoids dependency testing and allows to modify its input.
+  (*) It also shows that the problematic of the inputs by value exists even if we do not leave the function (see behavior of last argument). This problem was solved with an overload template<typename T> struct ref<T&&> { static inline T& make(T& t) { return t; } };
+
+- test_int.cpp
+  Makes exactly the same as test_array but using an int
+
+- test_lambda.cpp
+  Shows spawn of lambda functions and std::function (with functors). Also commented out spawns of functors and methods because they do not work.
+
+- test_out_scope.cpp
+  Shows the problem of spawning routines whose arguments are temporaries of another function. 
+  Those inputs can have been deallocated when the spawned routine is run.
+
+- test_rvalueref.cpp
+  Shows that rvalue references are not (currently) supported.
+
+- testreduction1_orix.cpp
+  testreduction1_fix1.cpp
+  Show that Arrays are not compared with other datatypes. To track an scalar taken out of an Array with other Arrays, it must be obtained as an Array, using r(Range(i,i)) instead of r(i).
+
+- test_subobject.cpp
+  Shows that partial overlaps on objects delay evaluations
+
+- test_wait_children_dep.cpp
+  Shows whether a function waits for its children to finish before releasing the dependencies it generates.
+
+- test_wait_for 
+ Shows that wait_for works correctly
+ 
+- test_Observer
+ Tests that Observer works as expected
+ 
+BENCHMARKS:
+
+- bench_spawn.cpp
+  Time to spawn functions
