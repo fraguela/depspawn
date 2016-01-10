@@ -1,8 +1,8 @@
 ## Data Dependent Spawn (DepSpawn) </p>
 
-A library for parallelizing applications by turing functions into tasks that automatically respect their data dependencies.
+A library for parallelizing applications by turning functions into tasks that automatically respect their data dependencies.
 
-All you need to do to execute in parallel a function `f(a, b, ...)` using DepSpawn is to rewrite the function call as `spawn(f, a, b, ...)`. Besides DepsSpawn will take care that the function is executed only when all its data dependencies are fulfilled, and it learns these dependencies automatically just by analyzing the type of the function formal parameters following this strategy:
+All you need to do to execute in parallel a function `f(a, b, ...)` using DepSpawn is to rewrite the function call as `spawn(f, a, b, ...)`. Besides it will take care that the function is executed only when all its data dependencies are fulfilled. DepSpawn learns these dependencies automatically by analyzing the type of the function formal parameters following this strategy:
 
  - Arguments passed by value are necessarily read-only, that is, only inputs to the function, as it cannot modify the original argument provided.
  
@@ -20,7 +20,7 @@ In the example below
  - The spawned function `g` waits for the two evaluations of `f` to finish because they both modify portions of `s`, the argument to `g`.
  - The last two spawns can operate in parallel because they operate on different data, but they can only start when `g` finishes because it can modify any component of the struct `s`, and these function calls work in fact on members of `s`.
 
-``` 
+```cpp 
     #include <iostream>
     #include "depspawn/depspawn.h"
 
@@ -64,7 +64,7 @@ In the example below
 
 Computing a histogram exploiting parallelism is challenging because it implies reductions of array positions obtained through indirections, so the dependencies between the reductions are only known at runtime. In our case, DepSpawn takes care of the problem:
 
-```
+```cpp
 	#include <iostream>
 	#include <random>
 	#include <array>
