@@ -89,27 +89,32 @@ namespace depspawn {
   
   public:
     
+    /// Constructor
     Ignore(T& t) :
     t_(t)
     {}
     
+    /// Assignment
     Ignore<T> operator= (const T& other) {
       t_ = other;
       return *this;
     }
     
+    /// Conversion to T
     operator T&() {
       return t_;
     }
     
+    /* Formerly used in ref<Ignore<T>&&>::make(Ignore<T>& t)
+       Now replaced by the conversion operator
     T& operator*() {
-
       return t_;
     }
     
     const T& operator*() const {
       return t_;
     }
+    */
     
     /// For debugging
     void *addr() const { return (void *)&t_; }
@@ -252,10 +257,11 @@ namespace depspawn {
       }
     };
     
+    /// Transform the reference to Ignore into a reference to T
     template<typename T>
     struct ref<Ignore<T>&&> {
-      static inline auto make(Ignore<T>& t) -> decltype(std::ref(*t)) {
-	return std::ref(*t);
+      static inline auto make(Ignore<T>& t) -> decltype(std::ref((T&)t)) {
+	return std::ref((T&)t);
       }
     };
 

@@ -95,6 +95,7 @@ namespace depspawn {
       } while(worklist.compare_and_swap(this, p) != p);
       
       for(p = next; p != nullptr; p = p->next) {
+
         // sometimes p == this, even if it shouldn't
         if(p == this) { // fprintf(stderr, "myself?\n");
           continue; // FIXIT
@@ -103,7 +104,7 @@ namespace depspawn {
           ancestor = p->father;
         } else {
           const status_t tmp_status = p->status;
-          if(tmp_status != Done && tmp_status != Deallocatable) {
+          if(tmp_status < Done) {
             arg_p = p->args; // preexisting workitem
             arg_w = args; // New workitem
             while(arg_p && arg_w) {
@@ -123,6 +124,14 @@ namespace depspawn {
                   p->lastdep = p->lastdep->next;
                 }
                 lock.release();
+                DEPSPAWN_DEBUGACTION(
+                                     /* You can be linking to Done's that are waiting for you to Fill-in
+                                       but NOT for Deallocatable Workitems */
+                                     if(p->status == Deallocatable) {
+                                       printf("%p -> Deallocatable %p (was %d)", this, p, (int)tmp_status);
+                                       assert(false);
+                                     }
+                                     ); // END DEPSPAWN_DEBUGACTION
                 break;
               } else {
                 if(arg_p->addr < arg_w->addr) {
@@ -183,6 +192,9 @@ namespace depspawn {
       // Finish work
       status = Done;
       
+      /* Without this fence the change of status can be unseen by Workitems that are Filling in */
+      tbb::atomic_fence();
+      
       const bool erase = (((((intptr_t)this)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false);
       
       ph = worklist;
@@ -239,6 +251,16 @@ namespace depspawn {
             while(p->status == Filling) { } // Waits until work p has its dependencies
           }
           
+          DEPSPAWN_DEBUGACTION(
+                               for(p = dp; p; p = p->next) {
+                                 assert(p-> args == nullptr);
+                                 if (p->deps) {
+                                   printf("%p -> %p\n", p, p->deps);
+                                   assert(p->deps == nullptr);
+                                 }
+                               }
+                               ); // END DEPSPAWN_DEBUGACTION
+
           Workitem::Pool.freeLinkedList(dp, last_workitem);
         }
         

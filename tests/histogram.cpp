@@ -32,101 +32,55 @@
 ///
 
 #include <iostream>
-#include <cstdio>
-#include <ctime>
-#include <string>
-#include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
-#include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
+#include <random>
+#include <array>
+#include <algorithm>
 #include "depspawn/depspawn.h"
 
 using namespace depspawn;
 
-struct t_struct {
-  int a, b;
-  
-  std::string string() const {
-    char tmp[128];
-    sprintf(tmp, "(%d, %d)", a, b);
-    return std::string(tmp);
-  }
-  
-};
+static const int N = 100000, RANGE = 100;
 
-std::ostream &operator<<(std::ostream &os, const t_struct &a)
-{
-  os << a.string();
-  return os;
-}
+std::array<int, N> v;
+std::array<int, RANGE> hist_par, hist_seq;
 
-tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
-
-#define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
-
-
-tbb::tick_count t0;
-
-t_struct s;
-
-
-void mywait(float seconds)
-{
-  clock_t endwait;
-  endwait = clock() + seconds * CLOCKS_PER_SEC ;
-  while (clock() < endwait) {}
-}
-
-void f(int &i) {  
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds() << " with s=" << s);
-  
+void incr(int &i) {
   i++;
-  
-  mywait(2.f);
-  
-  i++;
-  
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with s=" << s);
 }
-
-void g(t_struct& s) {  
-  LOG("g begin: " << (tbb::tick_count::now() - t0).seconds() << " with s=" << s);
-  
-  s.a++;
-  
-  mywait(2.f);
-  
-  s.a++;
-  
-  LOG("g finish: " << (tbb::tick_count::now() - t0).seconds() << " with s=" << s);
-}
-
 
 int main()
-{ 
-  s.a = 0;
-  s.b = 0;
+{
+  // Make some random numbers in the interval 0 -- RANGE -1
+  std::random_device rd;
+  std::uniform_int_distribution<int> dist(0, RANGE - 1);
   
-  std::cout << CLOCKS_PER_SEC << std::endl;
+  for (int i = 0; i < N; i++) {
+    v[i] = dist(rd);
+  }
   
-  tbb::task_scheduler_init tbbinit;
+  std::cout << "Data built" << std::endl;
   
-  t0 = tbb::tick_count::now();
-  
-  spawn(f, s.a); //Sets s.a to 2
-  
-  spawn(f, s.b); //Sets s.b to 2
+  // Compute the histogram sequentially
+  hist_seq.fill(0);
+  for (int i = 0; i < N; i++)
+    hist_seq[v[i]]++;
 
-  spawn(g, s); //Sets s.a to 4
+  std::cout << "Seq histogram built" << std::endl;
+
+  // Compute the histogram in parallel
+  hist_par.fill(0);
   
-  spawn(f, s.a); //Sets s.a to 6
-  
-  spawn(f, s.b); //Sets s.b to 4
+  set_threads();
+
+  for (int i = 0; i < N; i++) {
+    spawn(incr, hist_par[v[i]]);
+  }
   
   wait_for_all();
 
-  std::cout << "Final s.a =" << s.a << " s.b = " << s.b << std::endl;
+  // Do they match?
 
-  const bool test_ok = ((s.a == 6) && (s.b == 4));
+  bool test_ok = std::equal(hist_seq.begin(), hist_seq.end(), hist_par.begin());
   
   std::cout << "TEST " << (test_ok ? "SUCCESSFUL" : "UNSUCCESSFUL") << std::endl;
   

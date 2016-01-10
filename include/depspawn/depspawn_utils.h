@@ -35,13 +35,15 @@
 #ifndef __DEPSPAWNUTILS_H
 #define __DEPSPAWNUTILS_H
 
+
+
 #ifdef DEPSPAWN_PROFILE
 
 /// Code executed only for profiling purposes
 #define DEPSPAWN_PROFILEACTION(...) do{ __VA_ARGS__ ; }while(0)
 
 /// Definition used only for profiling purposes
-#define DEPSPAWN_PROFILEDEFINITION(...) __VA_ARGS__ ;
+#define DEPSPAWN_PROFILEDEFINITION(...) __VA_ARGS__
 
 #else
 
@@ -49,5 +51,24 @@
 #define DEPSPAWN_PROFILEDEFINITION(...) /* no profiling */
 
 #endif // DEPSPAWN_PROFILE
+
+
+
+#ifndef NDEBUG
+
+/// Code executed only for debugging purposes
+#define DEPSPAWN_DEBUGACTION(...) do{ __VA_ARGS__ ; }while(0)
+
+/// Definition used only for debugging purposes
+#define DEPSPAWN_DEBUGDEFINITION(...) __VA_ARGS__
+
+#else
+
+#define DEPSPAWN_DEBUGACTION(...) /* no debugging */
+#define DEPSPAWN_DEBUGDEFINITION(...) /* no debugging */
+
+#endif // NDEBUG
+
+
 
 #endif // __DEPSPAWNUTILS_H

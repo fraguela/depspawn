@@ -15,7 +15,7 @@ BLITZ_DIR := $(DEPSPAWN_DIR)/depspawn-blitz-0.10
 DEPSPAWN_INCLUDE_DIR := $(DEPSPAWN_DIR)/include
 DEPSPAWN_HEADERS := $(DEPSPAWN_INCLUDE_DIR)/depspawn/depspawn.h $(DEPSPAWN_INCLUDE_DIR)/depspawn/workitem.h $(DEPSPAWN_INCLUDE_DIR)/depspawn/workitem_alt.h $(DEPSPAWN_INCLUDE_DIR)/depspawn/DummyLinkedListPool.h $(DEPSPAWN_INCLUDE_DIR)/depspawn/LinkedListPool.h $(DEPSPAWN_INCLUDE_DIR)/depspawn/depspawn_utils.h
 
-NOBLITZTESTBINARIES := super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync
+NOBLITZTESTBINARIES := super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync histogram
 BLITZTESTBINARIES   := mxm mxv test_blitz_array testreduction1_fix1
 
 TESTBINARIES := $(NOBLITZTESTBINARIES) $(BLITZTESTBINARIES)

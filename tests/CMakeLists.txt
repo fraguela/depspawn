@@ -29,14 +29,14 @@
 # \author   Carlos H. Gonzalez  <cgonzalezv@udc.es>
 # \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 2.8.7 )
 
 add_definitions( -DBZ_THREADSAFE -DBZ_THREADSAFE_USE_TBB )
 
 include_directories( ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/depspawn-blitz-0.10 )
 link_libraries( depspawn tbb tbbmalloc )
 
-set( NOBLITZTESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync )
+set( NOBLITZTESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync histogram )
 
 set( BLITZTESTBINARIES mxm mxv test_blitz_array testreduction1_fix1 )
 

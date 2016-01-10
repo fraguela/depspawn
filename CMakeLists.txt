@@ -30,7 +30,7 @@
 # \author   Carlos H. Gonzalez  <cgonzalezv@udc.es>
 # \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 2.8.7 )
 
 project( DepSpawn )
 
@@ -107,8 +107,8 @@ if(DOXYGEN_FOUND)
   
   add_custom_command( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/doc/html/index.html
     COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
-	COMMAND cmake -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/doc
-	COMMAND cmake -E copy_directory ${PROJECT_SOURCE_DIR}/doc ${CMAKE_CURRENT_BINARY_DIR}/doc
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/doc
+	COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/doc ${CMAKE_CURRENT_BINARY_DIR}/doc
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/doc
     MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/doc/Doxyfile
     DEPENDS ${DOXY_DEPS}

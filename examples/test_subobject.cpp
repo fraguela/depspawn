@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2015 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2016 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  This file is part of DepSpawn.
  
@@ -23,10 +23,6 @@
 ///
 
 #include <iostream>
-#include <cstdio>
-#include <ctime>
-#include <string>
-
 #include "depspawn/depspawn.h"
 
 using namespace depspawn;
@@ -51,7 +47,7 @@ int main()
   s.a = 0;
   s.b = 0;
   
-  set_threads(tbb::task_scheduler_init::automatic);
+  set_threads();
   
   spawn(f, s.a); //Sets s.a to 1
   

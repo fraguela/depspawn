@@ -269,6 +269,34 @@ namespace depspawn {
       enum_thr_spec_father.local() = p;
     }
     
+DEPSPAWN_DEBUGDEFINITION(
+    /// Internal debugging purposes
+    //  expr -a 0 -- depspawn::internal::debug_follow_list((Workitem*)0x000000010424ce70, false)
+    void debug_follow_list(Workitem *p, bool doprint) {
+      static const int Nstates = (int)Deallocatable + 1;
+      unsigned int stath[Nstates];
+      unsigned int n = 0;
+      
+      for (int i = 0; i < Nstates; i++) {
+        stath[i] = 0;
+      }
+      
+      while (p != nullptr) {
+        n++;
+        stath[(int)(p->status)]++;
+        if (doprint) {
+          printf("%p (%d)\n", p, (int)(p->status));
+        }
+        p = p->next;
+      }
+      
+      printf("%u\n", n);
+      for (int i = 0; i < Nstates; i++) {
+         printf("stat %d -> %u\n", i, stath[i]);
+      }
+    }
+) // END DEPSPAWN_DEBUGDEFINITION
+    
   } //namespace internal
 
   void wait_for_all()
