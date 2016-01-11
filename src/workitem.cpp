@@ -77,6 +77,9 @@ namespace depspawn {
     { Workitem* p = nullptr;
       arg_info *arg_p, *arg_w;
       
+      DEPSPAWN_PROFILEDEFINITION(unsigned int profile_workitems_in_list_lcl = 0,
+                                              profile_workitems_in_list_active_lcl = 0);
+      
       DEPSPAWN_PROFILEACTION(profile_jobs++);
       
 #ifdef DEPSPAWN_FAST_START
@@ -93,9 +96,11 @@ namespace depspawn {
         p = worklist;
         next = p;
       } while(worklist.compare_and_swap(this, p) != p);
-      
+
       for(p = next; p != nullptr; p = p->next) {
 
+        DEPSPAWN_PROFILEACTION(profile_workitems_in_list_lcl++);
+        
         // sometimes p == this, even if it shouldn't
         if(p == this) { // fprintf(stderr, "myself?\n");
           continue; // FIXIT
@@ -105,6 +110,7 @@ namespace depspawn {
         } else {
           const status_t tmp_status = p->status;
           if(tmp_status < Done) {
+            DEPSPAWN_PROFILEACTION(profile_workitems_in_list_active_lcl++);
             arg_p = p->args; // preexisting workitem
             arg_w = args; // New workitem
             while(arg_p && arg_w) {
@@ -181,6 +187,8 @@ namespace depspawn {
       }
 #endif
       
+      DEPSPAWN_PROFILEACTION(profile_workitems_in_list += profile_workitems_in_list_lcl);
+      DEPSPAWN_PROFILEACTION(profile_workitems_in_list_active += profile_workitems_in_list_active_lcl);
     }
     
     void Workitem::finish_execution()
@@ -235,6 +243,8 @@ namespace depspawn {
       
       if(erase) {
         
+        DEPSPAWN_PROFILEACTION(profile_erases++);
+
         Workitem *last_workitem = this;
         for(p = next; p; p = p->next) {
           last_workitem = p;

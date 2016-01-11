@@ -82,9 +82,37 @@ namespace {
   tbb::atomic<int> ObserversAtWork;
   std::function<void(void)> FV = [](){};
 
-  DEPSPAWN_PROFILEDEFINITION(unsigned int profile_jobs = 0,
-                                          profile_steals = 0,
-                                          profile_steal_attempts = 0);
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int> profile_jobs = 0,
+                                                       profile_steals = 0,
+                                                       profile_steal_attempts = 0);
+
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int> profile_workitems_in_list = 0,
+                                                                 profile_workitems_in_list_active = 0);
+  
+  DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
+  
+  DEPSPAWN_PROFILEDEFINITION(
+      void profile_display_results(bool reset = false) {
+        // == spawns
+        unsigned jobs = (unsigned)profile_jobs;
+        // workitems in worklist per jobs spawned
+        unsigned avg_wil = (unsigned long long)profile_workitems_in_list / (unsigned long long)jobs;
+        // tested/active (not done or deallocatable) workitems in worklist per jobs spawned
+        unsigned avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
+        unsigned failed_steals = (unsigned)profile_steal_attempts - (unsigned)profile_steals;
+        
+        printf("Jobs: %u Steals=%u FailedSteals=%u Erases=%u Wil/job=%u Wilt/job=%u\n",
+               jobs, (unsigned)profile_steals, failed_steals,
+               profile_erases, avg_wil, avg_wilt);
+        
+        if(reset) {
+          profile_jobs = profile_steals = profile_steal_attempts = 0;
+          profile_workitems_in_list = profile_workitems_in_list_active = 0;
+          profile_erases = 0;
+        }
+      }
+  ) // END DEPSPAWN_PROFILEDEFINITION
+  
 };
 
 
@@ -316,7 +344,7 @@ DEPSPAWN_DEBUGDEFINITION(
       
       worklist = nullptr;
       
-      DEPSPAWN_PROFILEACTION(printf("Jobs: %u Steals=%u Failed Steals=%u\n", profile_jobs, profile_steals, profile_steal_attempts - profile_steals));
+      DEPSPAWN_PROFILEACTION(profile_display_results(true));
     }
 
   }

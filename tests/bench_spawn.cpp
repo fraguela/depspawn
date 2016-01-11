@@ -36,13 +36,11 @@
 #include <cstring>
 #include <iostream>
 #include <unistd.h>
-#include <tbb/task_scheduler_init.h>
 #include <tbb/tick_count.h>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
 #define N      100000
-#define NTESTS      7
 
 using namespace depspawn;
 
@@ -58,9 +56,11 @@ tbb::tick_count t0, t1, t2;
 double total_time = 0.;
 
 int mx[N][128/sizeof(int)];
-int nsize, nthreads, retstate = 0;
-bool dotest[NTESTS];
-voidfptr tests[NTESTS];
+int nsize = N;
+int nthreads = tbb::task_scheduler_init::automatic;
+int queue_limit = -1;
+int retstate = 0;
+int global_ntest; ///Used by pr()
 
 void cleanmx() {
   bzero(mx, sizeof(mx));
@@ -69,7 +69,7 @@ void cleanmx() {
 void pr(const char * s)
 {
   double tot = (t2 - t0).seconds();
-  printf("%27s %u times. ", s, nsize);
+  printf("T%2d %31s. ", global_ntest + 1, s);
   printf("Spawning : %8lf Running: %8lf T:%8lf\n", (t1 - t0).seconds(), (t2 - t1).seconds(), tot);
   total_time += tot;
 }
@@ -345,10 +345,168 @@ void test7()
   
 }
 
+/** These three tests compare the performance when an input does not need to be tracked */
+void test8()
+{ int v;
+  
+  //V1: just use it "as is"
+  v = 0;
+  
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, nthreads, v);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  if(v != (nthreads + 1)) {
+    std::cerr << " -> " << v;
+    doerror();
+  }
+  
+  pr("f(const_var, same_int&)");
+  
+  //V2: Freeze it
+  v = 0;
+  
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, std::move(nthreads), v);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  if(v != (nthreads + 1)) {
+    std::cerr << " -> " << v;
+    doerror();
+  }
+  
+  pr("f(frozen const_var, same_int&)");
+  
+  //V3: Ignore it
+  v = 0;
+  
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, ignore(nthreads), v);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  if(v != (nthreads + 1)) {
+    std::cerr << " -> " << v;
+    doerror();
+  }
+
+  pr("f(ignore(const_var), same_int&)");
+}
+
+/** These three tests compare the performance when an input does not need to be tracked */
+void test9()
+{
+  
+  //V1: just use it "as is"
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, nthreads, mx[i][0]);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    if(mx[i][0] != (nthreads + 1)) {
+      std::cerr << i << " -> " << mx[i][0];
+      doerror();
+    }
+    mx[i][0] = 0;
+  }
+  
+  pr("f(const_var, diff_int&)");
+  
+  //V2: Freeze it
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, std::move(nthreads), mx[i][0]);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    if(mx[i][0] != (nthreads + 1)) {
+      std::cerr << i << " -> " << mx[i][0];
+      doerror();
+    }
+    mx[i][0] = 0;
+  }
+  
+  pr("f(frozen const_var, diff_int&)");
+  
+  //V3: Ignore it
+  t0 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    spawn(depprev, ignore(nthreads), mx[i][0]);
+  }
+  
+  t1 = tbb::tick_count::now();
+  
+  wait_for_all();
+  
+  t2 = tbb::tick_count::now();
+  
+  for(int i = 0; i < nsize; i++) {
+    if(mx[i][0] != (nthreads + 1)) {
+      std::cerr << i << " -> " << mx[i][0];
+      doerror();
+    }
+    mx[i][0] = 0;
+  }
+  
+  pr("f(ignore(const_var), diff_int&)");
+}
+
+//////////////////////////////////////////////////////
+/////               Common part                  /////
+//////////////////////////////////////////////////////
+
+constexpr voidfptr tests[] =
+ {test1, test2, test3,
+  test4, test5, test6,
+  test7, test8, test9 };
+
+constexpr int NTESTS = sizeof(tests) / sizeof(tests[0]);
+bool dotest[NTESTS];
+
 void show_help()
 {
-  puts("bench_spawn [-h] [-t nthreads] [-T ntest] [problemsize]");
+  puts("bench_spawn [-h] [-q limit] [-t nthreads] [-T ntest] [problemsize]");
   puts("-h          Display help and exit");
+  puts("-q limit    # of pending ready tasks that makes a spawning thread steal one");
   puts("-t nthreads Run with nthreads threads. Default is automatic (-1)");
   printf("-T ntest    Run test ntest in [1, %u]\n", NTESTS);
   puts("            Can be used multiple times to select several tests");
@@ -359,23 +517,18 @@ void show_help()
 int process_arguments(int argc, char **argv)
 { int c;
   bool tests_specified = false;
-  
-  nsize = N;
-  nthreads = tbb::task_scheduler_init::automatic;
+
   for(c = 0; c < NTESTS; c++)
     dotest[c] = false;
-  tests[0] = test1;
-  tests[1] = test2;
-  tests[2] = test3;
-  tests[3] = test4;
-  tests[4] = test5;
-  tests[5] = test6;
-  tests[6] = test7;
   
-  while ( -1 != (c = getopt(argc, argv, "ht:T:")) )
+  while ( -1 != (c = getopt(argc, argv, "hq:t:T:")) )
   {
     switch (c)
     {
+      case 'q' : /* queue limit */
+        queue_limit = atoi(optarg);
+        break;
+        
       case 't': /* threads */
 	nthreads = atoi(optarg);
 	break;
@@ -421,19 +574,20 @@ int main(int argc, char **argv)
   if(process_arguments(argc, argv) == -1)
     return -1;
   
-#ifdef FAST_START
   set_threads(nthreads);
-  set_task_queue_limit(100);
-#else
-  tbb::task_scheduler_init tbbinit(nthreads);
-#endif
+
+  if (queue_limit >= 0) {
+    printf("Setting queue limit to %d\n", queue_limit);
+    set_task_queue_limit(queue_limit);
+  }
   
   cleanmx();
   
-  for(int i = 0; i < NTESTS; i++)
-    if(dotest[i])
-      (*tests[i])();
-
+  for(global_ntest = 0; global_ntest < NTESTS; global_ntest++) {
+    if(dotest[global_ntest])
+      (*tests[global_ntest])();
+  }
+  
   printf("Total : %8lf\n", total_time);
   
   return retstate;
