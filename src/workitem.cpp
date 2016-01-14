@@ -242,8 +242,8 @@ namespace depspawn {
         p->finish_execution();
       
       if(erase) {
-        
-        DEPSPAWN_PROFILEACTION(profile_erases++);
+        DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
+        DEPSPAWN_PROFILEACTION(profile_erases++;);
 
         Workitem *last_workitem = this;
         for(p = next; p; p = p->next) {
@@ -261,6 +261,8 @@ namespace depspawn {
             while(p->status == Filling) { } // Waits until work p has its dependencies
           }
           
+          DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+
           DEPSPAWN_DEBUGACTION(
                                for(p = dp; p; p = p->next) {
                                  assert(p-> args == nullptr);

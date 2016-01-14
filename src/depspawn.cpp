@@ -39,8 +39,13 @@
 #include <cassert>
 #include <unordered_set>
 #include <tbb/tbb_thread.h>
-#include "depspawn/depspawn.h"
 #include "depspawn/depspawn_utils.h"
+#include "depspawn/depspawn.h"
+#ifdef DEPSPAWN_PROFILE
+#include "tbb/tick_count.h"
+#endif
+
+
 
 namespace {
 
@@ -91,6 +96,8 @@ namespace {
   
   DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
   
+  DEPSPAWN_PROFILEDEFINITION(double profile_time_eraser_waiting = 0.);
+  
   DEPSPAWN_PROFILEDEFINITION(
       void profile_display_results(bool reset = false) {
         // == spawns
@@ -101,14 +108,16 @@ namespace {
         unsigned avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
         unsigned failed_steals = (unsigned)profile_steal_attempts - (unsigned)profile_steals;
         
-        printf("Jobs: %u Steals=%u FailedSteals=%u Erases=%u Wil/job=%u Wilt/job=%u\n",
+        printf("Jobs: %u Steals=%u FailedSteals=%u Erases=%u (%lf s.) Wil/job=%u Wilt/job=%u\n",
                jobs, (unsigned)profile_steals, failed_steals,
-               profile_erases, avg_wil, avg_wilt);
+               profile_erases, profile_time_eraser_waiting,
+               avg_wil, avg_wilt);
         
         if(reset) {
           profile_jobs = profile_steals = profile_steal_attempts = 0;
           profile_workitems_in_list = profile_workitems_in_list_active = 0;
           profile_erases = 0;
+          profile_time_eraser_waiting = 0.;
         }
       }
   ) // END DEPSPAWN_PROFILEDEFINITION
