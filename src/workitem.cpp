@@ -107,6 +107,9 @@ namespace depspawn {
         }
         if(p == ancestor) {
           ancestor = p->father;
+          if ( (ancestor != nullptr) && is_contained(this, ancestor)) {
+            break;
+          }
         } else {
           const status_t tmp_status = p->status;
           if(tmp_status < Done) {
@@ -192,54 +195,59 @@ namespace depspawn {
     }
     
     void Workitem::finish_execution()
-    { Workitem *p, *ph, *lastkeep, *dp;
+    { Workitem *p, *ph, *lastkeep;
       
       if(nchildren.fetch_and_decrement() != 1)
         return;
       
-      // Finish work
-      status = Done;
+      bool erase = false;
+      Workitem *current = this;
+
+      do {
+
+        // Finish work
+        current->status = Done;
       
-      /* Without this fence the change of status can be unseen by Workitems that are Filling in */
-      tbb::atomic_fence();
+        /* Without this fence the change of status can be unseen by Workitems that are Filling in */
+        tbb::atomic_fence();
       
-      const bool erase = (((((intptr_t)this)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false);
+        erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false));
       
-      ph = worklist;
-      lastkeep = ph;
-      for(p = ph; p && p != this; p = p->next) {
-        while(p->status == Filling) {}
-        if(p->status != Deallocatable)
-          lastkeep = p;
-      }
+        ph = worklist;
+        lastkeep = ph;
+        for(p = ph; p && p != this; p = p->next) { //wait until this, not current
+          while(p->status == Filling) {}
+          if(p->status != Deallocatable)
+            lastkeep = p;
+        }
       
-      // free lists
-      //delete ctx_->task;
+        // free lists
+        //delete ctx_->task;
       
-      if (deps != nullptr) {
-        Workitem::_dep *idep = deps;
-        do {
-          if(idep->w->ndependencies.fetch_and_decrement() == 1) {
-            idep->w->post();
-          }
-          idep = idep->next;
-        } while (idep != nullptr);
-        Workitem::_dep::Pool.freeLinkedList(deps, lastdep);
-        deps = lastdep = nullptr;
-      }
+        Workitem::_dep *idep = current->deps;
+        if (idep != nullptr) {
+          do {
+            if(idep->w->ndependencies.fetch_and_decrement() == 1) {
+              idep->w->post();
+            }
+            idep = idep->next;
+          } while (idep != nullptr);
+          Workitem::_dep::Pool.freeLinkedList(current->deps, current->lastdep);
+          current->deps = current->lastdep = nullptr;
+        }
       
-      if (args != nullptr) {
-        arg_info::Pool.freeLinkedList(args, [](arg_info *i) { if(i->is_array()) delete [] i->array_range; } );
-        args = nullptr;
-      }
+        if (current->args != nullptr) {
+          arg_info::Pool.freeLinkedList(current->args, [](arg_info *i) { if(i->is_array()) delete [] i->array_range; } );
+          current->args = nullptr;
+        }
       
+        p = current->father;
       
-      p = father;
+        current->status = Deallocatable;
       
-      status = Deallocatable;
-      
-      if(p)
-        p->finish_execution();
+        current = p;
+
+      } while ((p != nullptr) && (p->nchildren.fetch_and_decrement() == 1));
       
       if(erase) {
         DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
@@ -252,7 +260,7 @@ namespace depspawn {
             lastkeep = p;
         }
         
-        dp = lastkeep->next; // Everything from here will be deleted
+        Workitem *dp = lastkeep->next; // Everything from here will be deleted
         lastkeep->next = nullptr;
         
         if (dp != nullptr) {

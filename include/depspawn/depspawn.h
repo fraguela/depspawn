@@ -206,7 +206,11 @@ namespace depspawn {
       
       /// Returns whether this arg_info overlaps with the preceeding arg_info other,
       /// or any of its following arg_info's on the same array, both defined on the same array
-      bool overlap_array(const arg_info *other);
+      bool overlap_array(const arg_info *other) const;
+      
+      /// Returns whether this arg_info is contained within the preceeding arg_info other,
+      /// or any of its following arg_info's on the same array, both defined on the same array
+      bool is_contained_array(const arg_info *other) const;
 
       /// Whether this object refers to an array selection
       bool is_array() const { return rank != 0; }

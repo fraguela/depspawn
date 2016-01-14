@@ -53,15 +53,28 @@ namespace {
   
   /// Returns true if the intervals [s1, e1] and [s2, e2] overlap
   template<typename T>
-  constexpr bool check_intervals(const T s1, const T e1, const T s2, const T e2)
+  constexpr bool overlaps_intervals(const T s1, const T e1, const T s2, const T e2)
   {
     return (s1 <= s2) ? (s2 <= e1) : (s1 <= e2);
   }
   
   constexpr bool overlaps(const arg_info* const a, const arg_info* const b)
   {
-    return check_intervals(a->addr, a->addr + a->size - 1,
+    return overlaps_intervals(a->addr, a->addr + a->size - 1,
                            b->addr, b->addr + b->size - 1);
+  }
+  
+  /// Returns true if the interval [s1, e1] contains the interval [s2, e2]
+  template<typename T>
+  constexpr bool contains_intervals(const T s1, const T e1, const T s2, const T e2)
+  {
+    return (s1 <= s2) && (e2 <= e1);
+  }
+  
+  /// Means a contains b
+  constexpr bool contains(const arg_info* const a, const arg_info* const b)
+  { //the -1 for the end would be correct, but unnecessary in this test
+    return contains_intervals(a->addr, a->addr + a->size, b->addr, b->addr + b->size);
   }
   
   /// Tries to run the Workitem work
@@ -268,7 +281,7 @@ namespace depspawn {
       
     }
     
-    bool arg_info::overlap_array(const arg_info *other)
+    bool arg_info::overlap_array(const arg_info *other) const
     { int i;
 
       const int lim = rank;
@@ -281,8 +294,8 @@ namespace depspawn {
 	  assert(lim == other->rank);
 	  
 	  for(i = 0; i < lim; i++) {
-	    if(!check_intervals(std::get<0>(array_range[i]), std::get<1>(array_range[i]),
-				std::get<0>(other->array_range[i]), std::get<1>(other->array_range[i])))
+	    if(!overlaps_intervals(std::get<0>(array_range[i]), std::get<1>(array_range[i]),
+				   std::get<0>(other->array_range[i]), std::get<1>(other->array_range[i])))
 	      break;
 	  }
 	  
@@ -299,11 +312,72 @@ namespace depspawn {
       return false;
     }
     
+    bool arg_info::is_contained_array(const arg_info *other) const
+    { int i;
+      
+      const int lim = rank;
+      
+      do {
+
+          assert(lim == other->rank);
+          
+          for(i = 0; i < lim; i++) {
+            if(!contains_intervals(std::get<0>(other->array_range[i]), std::get<1>(other->array_range[i]),
+                                   std::get<0>(array_range[i]), std::get<1>(array_range[i])))
+              break;
+          }
+          
+          if(i == lim) {
+            //if(depspawn::debug) std::cout << "DEP FOUND\n";
+            return true;
+          }
+
+        
+        other = other->next;
+        
+      } while(other && (addr == other->addr));
+      
+      return false;
+    }
+    
     void AbstractBoxedFunction::run_in_env()
     {
       Workitem *p = enum_thr_spec_father.local();
       this->run();
       enum_thr_spec_father.local() = p;
+    }
+    
+    bool is_contained(const Workitem* const w, const Workitem * const ancestor)
+    {
+      const arg_info *arg_w = w->args;
+      const arg_info *arg_p = ancestor->args;
+      
+      while(arg_p && arg_w) {
+        
+        if (arg_w->addr < arg_p->addr) {
+          return false;
+        }
+        
+        if (arg_w->is_array()) {
+          if(arg_p->addr == arg_w->addr) {
+            if(!arg_w->is_contained_array(arg_p))
+              return false;
+            //Same array. Was contained => progress w
+            arg_w = arg_w->next;
+          } else { // Different array, arg_w->addr > arg_p->addr => progress p
+            arg_p = arg_p->next;
+          }
+        } else { //Here arg_p->addr <= arg_w->addr
+          if ((arg_w->addr + arg_w->size) <= (arg_p->addr + arg_p->size) ) {
+            arg_w = arg_w->next;
+          } else {
+            arg_p = arg_p->next;
+          }
+        }
+        
+      }
+      
+      return arg_w == nullptr;
     }
     
 DEPSPAWN_DEBUGDEFINITION(
