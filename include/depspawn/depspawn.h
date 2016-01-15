@@ -193,11 +193,11 @@ namespace depspawn {
     struct arg_info {
       value_t addr;                ///< base address
       size_t size;                 ///< size
-      bool wr;                     ///< writable?
-      char rank;                   ///< dimensions (if it is an array), 0 otherwise
       array_range_t* array_range;  ///< subregion in each dimension (only used if it is an array)
       arg_info* next;              ///< next arg_info (sorted by addr)
-      
+      bool wr;                     ///< writable?
+      char rank;                   ///< dimensions (if it is an array), 0 otherwise
+
       /// inserts this object in the list of args in order according to addr
       void insert_in_arglist(arg_info*& args);
       
@@ -345,7 +345,7 @@ namespace depspawn {
     extern int getNumThreads();
     
     /// Common steps for wait_for operations
-    extern void common_wait_for(arg_info *pargs);
+    extern void common_wait_for(arg_info *pargs, int nargs);
     
     /// Common elements to all BoxedFunction objects. Provides type-independent run() API
     struct AbstractBoxedFunction {
@@ -476,21 +476,23 @@ namespace depspawn {
 
     /// Argument analysis base case
     template<typename T_it>
-    void fill_args(arg_info*&) { }
-    
+    int fill_args(arg_info*&) { return 0; }
+
     /// Recursively analyze the list of types and arguments, filling in the argument list of the Workitem
     template<typename T_it, typename Head, typename... Tail>
-    void fill_args(arg_info*& args, Head&& h, Tail&&... t) {
+    int fill_args(arg_info*& args, Head&& h, Tail&&... t) {
       typedef typename boost::mpl::deref<T_it>::type curr_t;    //Formal parameter type
-      const bool is_reference = std::is_reference<curr_t>::value;
+      constexpr bool is_reference = std::is_reference<curr_t>::value;
       typedef typename std::remove_reference<curr_t>::type deref_t;
-      const bool is_const = std::is_const<deref_t>::value;
-      const bool is_writable = is_reference && !is_const;
-      const bool is_barray = is_blitz_array<typename std::remove_const<typename std::remove_reference<Head>::type>::type>::value;
-
-      if(!is_ignored<curr_t&&>::value &&
-         !is_ignored<Head&&>::value &&
-         !(std::is_rvalue_reference<Head&&>::value && !is_barray) ) {
+      constexpr bool is_const = std::is_const<deref_t>::value;
+      constexpr bool is_writable = is_reference && !is_const;
+      constexpr bool is_barray = is_blitz_array<typename std::remove_const<typename std::remove_reference<Head>::type>::type>::value;
+      constexpr int process_argument =
+      !is_ignored<curr_t&&>::value &&
+      !is_ignored<Head&&>::value &&
+      !(std::is_rvalue_reference<Head&&>::value && !is_barray);
+      
+      if(process_argument) {
 	
         arg_info* n = arg_info::Pool.malloc();
 	n->size = sizeof(Head);
@@ -502,18 +504,18 @@ namespace depspawn {
 	n->insert_in_arglist(args);
       }
       
-      fill_args<typename boost::mpl::next<T_it>::type>(args, std::forward<Tail>(t)...);
+      return process_argument + fill_args<typename boost::mpl::next<T_it>::type>(args, std::forward<Tail>(t)...);
     }
 
 /// Common steps to all the spawn function versions
 #define INLINED_IN_SPAWN(parameter_types)                                                                             \
           internal::arg_info *pargs = nullptr;                                                                        \
-          internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, std::forward<Args>(args)...); \
+          const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, std::forward<Args>(args)...); \
                                                                                                                       \
           if(!internal::master_task)                                                                                  \
             internal::start_master();                                                                                 \
                                                                                                                       \
-          internal::Workitem* w = internal::Workitem::Pool.malloc(pargs);                                             \
+          internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);                                      \
                                                                                                                       \
           w->insert_in_worklist(new (tbb::task::allocate_additional_child_of(*internal::master_task)) internal::runner<decltype(std::bind(f, internal::ref<Args&&>::make(args)...))>(w, f, std::forward<Args>(args)...));                                      \
           /* w->run(); return *w->task; */
@@ -592,7 +594,7 @@ typedef void spawn_ret_t;
     //std::function<Function> f = [](const Args&... args) { std::cout << "EXEC!\n"; };
     typedef boost::function_types::parameter_types<Function> parameter_types;
     internal::arg_info *pargs = nullptr;
-    internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, args...);
+    const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, args...);
     
     /*
     tbb::task* const dummy = new (tbb::task::allocate_root()) tbb::empty_task;
@@ -606,7 +608,7 @@ typedef void spawn_ret_t;
     dummy->destroy(*dummy);
     */
     
-    internal::common_wait_for(pargs);
+    internal::common_wait_for(pargs, nargs);
   }
 
   /// \brief When destroyed, it makes sure that all the tasks spawned by the current

@@ -185,12 +185,12 @@ namespace depspawn {
       enum_thr_spec_father.local() = nullptr;
     }
     
-    void common_wait_for(arg_info *pargs)
+    void common_wait_for(arg_info *pargs, int nargs)
     {
       tbb::task* const dummy = new (tbb::task::allocate_root()) tbb::empty_task;
       dummy->set_ref_count(1 + 1);
       
-      internal::Workitem* w = internal::Workitem::Pool.malloc(pargs);
+      internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
       w->insert_in_worklist(new (dummy->allocate_child()) internal::runner<decltype(FV)>(w, FV));
       
       dummy->wait_for_all();

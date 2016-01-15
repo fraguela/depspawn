@@ -37,10 +37,10 @@ namespace depspawn {
   
   namespace internal {
     
-    Workitem::Workitem(arg_info *iargs) :
+    Workitem::Workitem(arg_info *iargs, int nargs) :
     args(iargs), status(Filling), task(nullptr),
     father(enum_thr_spec_father.local()), next(nullptr),
-    deps(nullptr), lastdep(nullptr)
+    deps(nullptr), lastdep(nullptr), nargs_(static_cast<char>(nargs))
     {
       ndependencies = 0;
       nchildren = 1;
@@ -49,7 +49,7 @@ namespace depspawn {
         father->nchildren.fetch_and_increment();
     }
     
-    void Workitem::init(arg_info *iargs)
+    void Workitem::init(arg_info *iargs, int nargs)
     {
       args = iargs;
       status = Filling;
@@ -60,6 +60,7 @@ namespace depspawn {
       ndependencies = 0;
       nchildren = 1;
       guard_ = 0;
+      nargs_ = nargs;
       if(father)
         father->nchildren.fetch_and_increment();
     }
@@ -74,8 +75,18 @@ namespace depspawn {
     }
 
     void Workitem::insert_in_worklist(AbstractRunner* itask)
-    { Workitem* p = nullptr;
+    { Workitem* p;
       arg_info *arg_p, *arg_w;
+      
+      //Save original list of arguments
+      int nargs = static_cast<int>(nargs_);
+      arg_info* argv[nargs+1];
+      arg_w = args;
+      for (int i = 0; arg_w != nullptr; i++) {
+        argv[i] = arg_w;     //printf("Fill %d %lu\n", i, arg_w->addr);
+        arg_w = arg_w->next;
+      }
+      argv[nargs] = nullptr;
       
       DEPSPAWN_PROFILEDEFINITION(unsigned int profile_workitems_in_list_lcl = 0,
                                               profile_workitems_in_list_active_lcl = 0);
@@ -107,6 +118,7 @@ namespace depspawn {
         }
         if(p == ancestor) {
           ancestor = p->father;
+          // TODO: is_contained should be adapted to use argv
           if ( (ancestor != nullptr) && is_contained(this, ancestor)) {
             break;
           }
@@ -114,11 +126,15 @@ namespace depspawn {
           const status_t tmp_status = p->status;
           if(tmp_status < Done) {
             DEPSPAWN_PROFILEACTION(profile_workitems_in_list_active_lcl++);
+            int arg_w_i = 0;
             arg_p = p->args; // preexisting workitem
-            arg_w = args; // New workitem
+            arg_w = argv[0]; // New workitem
             while(arg_p && arg_w) {
-              const bool conflict = arg_w->is_array() ? ( (arg_p->addr == arg_w->addr) && arg_w->overlap_array(arg_p) )
-              : ( (arg_p->wr || arg_w->wr) && overlaps(arg_p, arg_w));
+              
+              const bool conflict = arg_w->is_array()
+              ? ( (arg_p->addr == arg_w->addr) && arg_w->overlap_array(arg_p) )
+              : ( (arg_p->wr || arg_w->wr) && overlaps(arg_p, arg_w) );
+              
               if(conflict) { // Found a dependency
                 ndependencies++;
                 Workitem::_dep* newdep = Workitem::_dep::Pool.malloc();
@@ -141,12 +157,28 @@ namespace depspawn {
                                        assert(false);
                                      }
                                      ); // END DEPSPAWN_DEBUGACTION
+                if (arg_p->wr &&
+                    (arg_w->is_array() ? arg_w->is_contained_array(arg_p) : contains(arg_p, arg_w))) {
+                  nargs--; //printf("%d %d %lu\n", nargs, arg_w_i, arg_w->addr);
+                  if (!nargs) {
+                    /* The optimal thing to do is to just make this goto to leave the main loop and insert
+                     the Workitem waiting. But in tests with repeated spawns this leads to very fast insertion
+                     that slows down the performance */
+                    //goto OUT_MAIN_insert_in_worklist_LOOP;
+                    argv[0] = nullptr;
+                    break;
+                  } else {
+                    for (int i = arg_w_i; i <= nargs; i++) {
+                      argv[i] = argv[i+1];
+                    }
+                  }
+                }
                 break;
               } else {
                 if(arg_p->addr < arg_w->addr) {
                   arg_p = arg_p->next;
                 } else {
-                  arg_w = arg_w->next;
+                  arg_w = argv[++arg_w_i];
                 }
               }
             }
@@ -160,6 +192,8 @@ namespace depspawn {
           }
         }
       }
+      
+OUT_MAIN_insert_in_worklist_LOOP:
       
 #ifdef DEPSPAWN_FAST_START
       if (nready > FAST_THRESHOLD) {

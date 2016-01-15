@@ -68,15 +68,16 @@ namespace depspawn {
         *lastdep;                       ///< Tail of the list of dependencies on this Workitem
       
       tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
+      char nargs_;
       
       /// Default constructor, for pool purposes
       Workitem() {}
       
       /// Build Workitem associated to a list of information on arguments
-      Workitem(arg_info *iargs);
+      Workitem(arg_info *iargs, int nargs);
       
       /// Initialize empty/recycled Workitem with a list of information on arguments
-      void init(arg_info *iargs);
+      void init(arg_info *iargs, int nargs);
       
       /// Provide task with work for this Workitem and insert it in the worklist
       void insert_in_worklist(AbstractRunner* itask);
