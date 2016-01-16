@@ -36,14 +36,12 @@
 #ifndef __WORKITEM_H
 #define __WORKITEM_H
 
-#include <tbb/mutex.h>
-
 namespace depspawn {
   
   namespace internal {
     
     /// Status of a Workitem
-    enum status_t { Filling = 0, Waiting = 1, Ready = 2, Running = 3, Done = 4, Deallocatable = 5};
+    enum status_t : short int { Filling = 0, Waiting = 1, Ready = 2, Running = 3, Done = 4, Deallocatable = 5};
     
     /// Internal representation of the work associated to a spawn
     struct Workitem {
@@ -53,15 +51,19 @@ namespace depspawn {
         FatherScape  = 2
       };
       
-      arg_info *args;                   ///< List of parameters, ordered by memory position
       volatile status_t status;         ///< State of this Workitem
+      short int optFlags_;
+      tbb::atomic<char> deps_mutex_;    ///< Mutex for critical section for insertion in the list of dependencies
+      tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
+      char nargs_;
+      
+      arg_info *args;                   ///< List of parameters, ordered by memory position
+      Workitem* next;                   ///< next Workitem in the worklist
+      Workitem* father;                 ///< Workitem that spawned this Workitem
       tbb::atomic<int> ndependencies;   ///< Number of works on which the current task depends
       tbb::atomic<int> nchildren;       ///< Number of children tasks + 1
       AbstractRunner* task;             ///< Task that encapsulates the work associated to this Workitem
-      Workitem* father;                 ///< Workitem that spawned this Workitem
-      Workitem* next;                   ///< next Workitem in the worklist
-      tbb::mutex deps_mutex;            ///< Mutex for critical section for insertion in the list of dependencies
-      
+
       /// Depency on this Workitem
       struct _dep {
         Workitem* w;                    ///< Workitem that depends on the current task
@@ -72,18 +74,12 @@ namespace depspawn {
         //static void operator delete(void* p) { scalable_free(p); };
       } *deps,                          ///< Head of the list of dependencies on this Workitem
         *lastdep;                       ///< Tail of the list of dependencies on this Workitem
-      short int optFlags_;
-      tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
-      char nargs_;
       
       /// Default constructor, for pool purposes
       Workitem() {}
       
       /// Build Workitem associated to a list of information on arguments
       Workitem(arg_info *iargs, int nargs);
-      
-      /// Initialize empty/recycled Workitem with a list of information on arguments
-      ///void init(arg_info *iargs, int nargs);
       
       /// Provide task with work for this Workitem and insert it in the worklist
       void insert_in_worklist(AbstractRunner* itask);

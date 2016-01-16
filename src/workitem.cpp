@@ -38,36 +38,18 @@ namespace depspawn {
   namespace internal {
     
     Workitem::Workitem(arg_info *iargs, int nargs) :
-    args(iargs), status(Filling), task(nullptr),
-    father(enum_thr_spec_father.local()), next(nullptr),
-    deps(nullptr), lastdep(nullptr),
-    optFlags_(0), nargs_(static_cast<char>(nargs))
+    status(Filling), optFlags_(0), nargs_(static_cast<char>(nargs)),
+    args(iargs), next(nullptr), father(enum_thr_spec_father.local()),
+    task(nullptr), deps(nullptr), lastdep(nullptr)
     {
+      deps_mutex_ = 0;
+      guard_ = 0;
       ndependencies = 0;
       nchildren = 1;
-      guard_ = 0;
+      
       if(father)
         father->nchildren.fetch_and_increment();
     }
-    
-    /*
-    void Workitem::init(arg_info *iargs, int nargs)
-    {
-      args = iargs;
-      status = Filling;
-      task = nullptr;
-      father = enum_thr_spec_father.local();
-      next = nullptr;
-      deps = lastdep = nullptr;
-      ndependencies = 0;
-      nchildren = 1;
-      pendingFills_ = false;
-      guard_ = 0;
-      nargs_ = nargs;
-      if(father)
-        father->nchildren.fetch_and_increment();
-    }
-    */
     
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
@@ -148,14 +130,18 @@ namespace depspawn {
                 newdep->next = nullptr;
                 newdep->w = this;
                 
-                tbb::mutex::scoped_lock lock(p->deps_mutex);
+                //tbb::mutex::scoped_lock lock(p->deps_mutex);
+                while (p->deps_mutex_.compare_and_swap(1, 0) != 0) { }
+                
                 if(!p->deps)
                   p->deps = p->lastdep = newdep;
                 else {
                   p->lastdep->next = newdep;
                   p->lastdep = p->lastdep->next;
                 }
-                lock.release();
+                //lock.release();
+                p->deps_mutex_ = 0;
+                
                 DEPSPAWN_DEBUGACTION(
                                      /* You can be linking to Done's that are waiting for you to Fill-in
                                        but NOT for Deallocatable Workitems */
