@@ -126,7 +126,7 @@ namespace {
           // workitems in worklist per jobs spawned
           avg_wil = (unsigned long long)profile_workitems_in_list / (unsigned long long)jobs;
           // tested/active (not done or deallocatable) workitems in worklist per jobs spawned
-          unsigned avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
+          avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
         } else {
           avg_wil = avg_wilt = 0;
         }
@@ -148,7 +148,11 @@ namespace {
                avg_wil, avg_wilt);
         printf("Early Term: %u Wil/e.t.=%u Wilt/e.t.=%u\n",
                early_terminations, avg_wil_early, avg_wilt_early);
-        
+        /*
+        printf("Wil =%llu\nWilt=%llu\nWil_e =%llu\nWilt_e=%llu\n",
+               (unsigned long long)profile_workitems_in_list, (unsigned long long)profile_workitems_in_list_active,
+               (unsigned long long)profile_workitems_in_list_early_termination, (unsigned long long)profile_workitems_in_list_active_early_termination);
+         */
         if(reset) {
           profile_jobs = profile_steals = profile_steal_attempts = profile_early_terminations = 0;
           profile_workitems_in_list = profile_workitems_in_list_active = 0;

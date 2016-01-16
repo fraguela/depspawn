@@ -40,7 +40,8 @@ namespace depspawn {
     Workitem::Workitem(arg_info *iargs, int nargs) :
     args(iargs), status(Filling), task(nullptr),
     father(enum_thr_spec_father.local()), next(nullptr),
-    deps(nullptr), lastdep(nullptr), nargs_(static_cast<char>(nargs))
+    deps(nullptr), lastdep(nullptr),
+    optFlags_(0), nargs_(static_cast<char>(nargs))
     {
       ndependencies = 0;
       nchildren = 1;
@@ -49,6 +50,7 @@ namespace depspawn {
         father->nchildren.fetch_and_increment();
     }
     
+    /*
     void Workitem::init(arg_info *iargs, int nargs)
     {
       args = iargs;
@@ -59,11 +61,13 @@ namespace depspawn {
       deps = lastdep = nullptr;
       ndependencies = 0;
       nchildren = 1;
+      pendingFills_ = false;
       guard_ = 0;
       nargs_ = nargs;
       if(father)
         father->nchildren.fetch_and_increment();
     }
+    */
     
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
@@ -122,6 +126,7 @@ namespace depspawn {
           // TODO: is_contained should be adapted to use argv
           if ( (ancestor != nullptr) && is_contained(this, ancestor)) {
             DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true);
+            optFlags_ |= static_cast<short int>(OptFlags::FatherScape);
             break;
           }
         } else {
@@ -192,6 +197,9 @@ namespace depspawn {
               nready++;
             }
 #endif
+            if( p->status == Filling ) {
+              optFlags_ |=  static_cast<short int>(OptFlags::PendingFills);
+            }
           }
         }
       }
@@ -239,7 +247,7 @@ OUT_MAIN_insert_in_worklist_LOOP:
     }
     
     void Workitem::finish_execution()
-    { Workitem *p, *ph, *lastkeep;
+    { Workitem *p, *ph;
       
       if(nchildren.fetch_and_decrement() != 1)
         return;
@@ -258,11 +266,24 @@ OUT_MAIN_insert_in_worklist_LOOP:
         erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false));
       
         ph = worklist;
-        lastkeep = ph;
+        //lastkeep = ph;
         for(p = ph; p && p != this; p = p->next) { //wait until this, not current
+          
           while(p->status == Filling) {}
-          if(p->status != Deallocatable)
-            lastkeep = p;
+          
+          //if(p->status != Deallocatable)
+          //  lastkeep = p;
+
+          if(!(p->optFlags_ & static_cast<short int>(OptFlags::PendingFills))) {
+            if(p->optFlags_ & static_cast<short int>(OptFlags::FatherScape)) {
+              if (p->status < Done) { //The father of a Done/Deallocated could be freed
+                p = p->father; //the iterator sets p = p->next;
+              }
+            } else {
+              break;
+            }
+          }
+
         }
       
         // free lists
@@ -297,6 +318,7 @@ OUT_MAIN_insert_in_worklist_LOOP:
         DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
         DEPSPAWN_PROFILEACTION(profile_erases++;);
 
+        Workitem *lastkeep = this;
         Workitem *last_workitem = this;
         for(p = next; p; p = p->next) {
           last_workitem = p;
