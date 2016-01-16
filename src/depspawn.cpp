@@ -100,12 +100,17 @@ namespace {
   tbb::atomic<int> ObserversAtWork;
   std::function<void(void)> FV = [](){};
 
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int> profile_jobs = 0,
-                                                       profile_steals = 0,
-                                                       profile_steal_attempts = 0);
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int>
+                             profile_jobs = 0,
+                             profile_steals = 0,
+                             profile_steal_attempts = 0,
+                             profile_early_terminations = 0);
 
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int> profile_workitems_in_list = 0,
-                                                                 profile_workitems_in_list_active = 0);
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int>
+                             profile_workitems_in_list = 0,
+                             profile_workitems_in_list_active = 0,
+                             profile_workitems_in_list_early_termination = 0,
+                             profile_workitems_in_list_active_early_termination = 0);
   
   DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
   
@@ -115,20 +120,39 @@ namespace {
       void profile_display_results(bool reset = false) {
         // == spawns
         unsigned jobs = (unsigned)profile_jobs;
-        // workitems in worklist per jobs spawned
-        unsigned avg_wil = (unsigned long long)profile_workitems_in_list / (unsigned long long)jobs;
-        // tested/active (not done or deallocatable) workitems in worklist per jobs spawned
-        unsigned avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
+        
+        unsigned avg_wil, avg_wilt;
+        if(jobs) {
+          // workitems in worklist per jobs spawned
+          avg_wil = (unsigned long long)profile_workitems_in_list / (unsigned long long)jobs;
+          // tested/active (not done or deallocatable) workitems in worklist per jobs spawned
+          unsigned avg_wilt = (unsigned long long)profile_workitems_in_list_active / (unsigned long long)jobs;
+        } else {
+          avg_wil = avg_wilt = 0;
+        }
+        
         unsigned failed_steals = (unsigned)profile_steal_attempts - (unsigned)profile_steals;
+        
+        unsigned early_terminations = (unsigned)profile_early_terminations;
+        unsigned avg_wil_early, avg_wilt_early;
+        if(early_terminations) {
+          avg_wil_early = (unsigned long long)profile_workitems_in_list_early_termination / early_terminations;
+          avg_wilt_early = (unsigned long long)profile_workitems_in_list_active_early_termination / early_terminations;
+        } else {
+          avg_wil_early = avg_wilt_early = 0;
+        }
         
         printf("Jobs: %u Steals=%u FailedSteals=%u Erases=%u (%lf s.) Wil/job=%u Wilt/job=%u\n",
                jobs, (unsigned)profile_steals, failed_steals,
                profile_erases, profile_time_eraser_waiting,
                avg_wil, avg_wilt);
+        printf("Early Term: %u Wil/e.t.=%u Wilt/e.t.=%u\n",
+               early_terminations, avg_wil_early, avg_wilt_early);
         
         if(reset) {
-          profile_jobs = profile_steals = profile_steal_attempts = 0;
+          profile_jobs = profile_steals = profile_steal_attempts = profile_early_terminations = 0;
           profile_workitems_in_list = profile_workitems_in_list_active = 0;
+          profile_workitems_in_list_early_termination = profile_workitems_in_list_active_early_termination = 0;
           profile_erases = 0;
           profile_time_eraser_waiting = 0.;
         }

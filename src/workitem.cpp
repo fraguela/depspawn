@@ -90,6 +90,7 @@ namespace depspawn {
       
       DEPSPAWN_PROFILEDEFINITION(unsigned int profile_workitems_in_list_lcl = 0,
                                               profile_workitems_in_list_active_lcl = 0);
+      DEPSPAWN_PROFILEDEFINITION(bool profile_early_termination_lcl = false);
       
       DEPSPAWN_PROFILEACTION(profile_jobs++);
       
@@ -120,6 +121,7 @@ namespace depspawn {
           ancestor = p->father;
           // TODO: is_contained should be adapted to use argv
           if ( (ancestor != nullptr) && is_contained(this, ancestor)) {
+            DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true);
             break;
           }
         } else {
@@ -161,6 +163,7 @@ namespace depspawn {
                     (arg_w->is_array() ? arg_w->is_contained_array(arg_p) : contains(arg_p, arg_w))) {
                   nargs--; //printf("%d %d %lu\n", nargs, arg_w_i, arg_w->addr);
                   if (!nargs) {
+                    DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true); //not true actually...
                     /* The optimal thing to do is to just make this goto to leave the main loop and insert
                      the Workitem waiting. But in tests with repeated spawns this leads to very fast insertion
                      that slows down the performance */
@@ -205,7 +208,7 @@ OUT_MAIN_insert_in_worklist_LOOP:
         } while ( (stolen_abf == nullptr) && (nready >= 0) );
       }
 #endif
-      
+
       // This is set after stealing work because this way
       // the fast_arr workitems should not have been deallocated
       //status = (!ndependencies) ? Ready : Waiting;
@@ -224,8 +227,15 @@ OUT_MAIN_insert_in_worklist_LOOP:
       }
 #endif
       
-      DEPSPAWN_PROFILEACTION(profile_workitems_in_list += profile_workitems_in_list_lcl);
-      DEPSPAWN_PROFILEACTION(profile_workitems_in_list_active += profile_workitems_in_list_active_lcl);
+      DEPSPAWN_PROFILEACTION(
+                             if(profile_early_termination_lcl) {
+                               profile_early_terminations++;
+                               profile_workitems_in_list_early_termination += profile_workitems_in_list_lcl;
+                               profile_workitems_in_list_active_early_termination += profile_workitems_in_list_active_lcl;
+                             }
+                             profile_workitems_in_list += profile_workitems_in_list_lcl;
+                             profile_workitems_in_list_active += profile_workitems_in_list_active_lcl;
+                             );
     }
     
     void Workitem::finish_execution()
