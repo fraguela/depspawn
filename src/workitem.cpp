@@ -169,9 +169,12 @@ namespace depspawn {
                   nargs--; //printf("%d %d %lu\n", nargs, arg_w_i, arg_w->addr);
                   if (!nargs) {
                     DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true); //not true actually...
-                    /* The optimal thing to do is to just make this goto to leave the main loop and insert
+                    /* The optimal thing would be to just make this goto to leave the main loop and insert
                      the Workitem waiting. But in tests with repeated spawns this leads to very fast insertion
-                     that slows down the performance */
+                     that slows down the performance. Other advantages of continuing down the list:
+                     - More likely DEPSPAWN_FAST_START and using oldest tasks
+                     - optFlags_ is correctly computed
+                     */
                     //goto OUT_MAIN_insert_in_worklist_LOOP;
                     argv[0] = nullptr;
                     break;
@@ -204,7 +207,7 @@ namespace depspawn {
         }
       }
       
-OUT_MAIN_insert_in_worklist_LOOP:
+//OUT_MAIN_insert_in_worklist_LOOP:
       
 #ifdef DEPSPAWN_FAST_START
       if (nready > FAST_THRESHOLD) {
@@ -245,7 +248,7 @@ OUT_MAIN_insert_in_worklist_LOOP:
                              profile_workitems_in_list_active += profile_workitems_in_list_active_lcl;
                              );
     }
-    
+
     void Workitem::finish_execution()
     { Workitem *p, *ph;
       
@@ -267,13 +270,14 @@ OUT_MAIN_insert_in_worklist_LOOP:
       
         ph = worklist;
         //lastkeep = ph;
+        
         for(p = ph; p && p != this; p = p->next) { //wait until this, not current
-          
+      
           while(p->status == Filling) {}
-          
+      
           //if(p->status != Deallocatable)
           //  lastkeep = p;
-
+      
           if(!(p->optFlags_ & static_cast<short int>(OptFlags::PendingFills))) {
             if(p->optFlags_ & static_cast<short int>(OptFlags::FatherScape)) {
               if (p->status < Done) { //The father of a Done/Deallocated could be freed
@@ -283,9 +287,9 @@ OUT_MAIN_insert_in_worklist_LOOP:
               break;
             }
           }
-
+          
         }
-      
+        
         // free lists
         //delete ctx_->task;
       
@@ -333,6 +337,9 @@ OUT_MAIN_insert_in_worklist_LOOP:
 
           for(p = worklist; p != ph; p = p->next) {
             while(p->status == Filling) { } // Waits until work p has its dependencies
+            if(! p->optFlags_) {
+              break;
+            }
           }
           
           DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
