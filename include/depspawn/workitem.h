@@ -47,6 +47,12 @@ namespace depspawn {
     
     /// Internal representation of the work associated to a spawn
     struct Workitem {
+      
+      enum class OptFlags : short int {
+        PendingFills = 1,
+        FatherScape  = 2
+      };
+      
       arg_info *args;                   ///< List of parameters, ordered by memory position
       volatile status_t status;         ///< State of this Workitem
       tbb::atomic<int> ndependencies;   ///< Number of works on which the current task depends
@@ -66,7 +72,7 @@ namespace depspawn {
         //static void operator delete(void* p) { scalable_free(p); };
       } *deps,                          ///< Head of the list of dependencies on this Workitem
         *lastdep;                       ///< Tail of the list of dependencies on this Workitem
-      
+      short int optFlags_;
       tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
       
       /// Default constructor, for pool purposes
@@ -76,7 +82,7 @@ namespace depspawn {
       Workitem(arg_info *iargs);
       
       /// Initialize empty/recycled Workitem with a list of information on arguments
-      void init(arg_info *iargs);
+      /// void init(arg_info *iargs);
       
       /// Provide task with work for this Workitem and insert it in the worklist
       void insert_in_worklist(AbstractRunner* itask);
