@@ -40,18 +40,30 @@ namespace depspawn {
   
   namespace internal {
     
-    /// Status of a Workitem
-    enum status_t : short int { Filling = 0, Waiting = 1, Ready = 2, Running = 3, Done = 4, Deallocatable = 5};
-    
     /// Internal representation of the work associated to a spawn
     struct Workitem {
       
-      enum class OptFlags : short int {
-        PendingFills = 1,
-        FatherScape  = 2
+      /// Status of a Workitem
+      struct Status_t {
+        enum internal_Status_t : short int {
+          Filling = 0,
+          Waiting = 1,
+          Ready = 2,
+          Running = 3,
+          Done = 4,
+          Deallocatable = 5
+        };
       };
       
-      volatile status_t status;         ///< State of this Workitem
+      /// Bitmap for implementing optimizations
+      struct OptFlags {
+        enum internal_OptFlags : short int {
+          PendingFills = 1,
+          FatherScape  = 2
+        };
+      };
+      
+      volatile Status_t::internal_Status_t status;  ///< State of this Workitem
       short int optFlags_;
       tbb::atomic<char> deps_mutex_;    ///< Mutex for critical section for insertion in the list of dependencies
       tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
@@ -92,7 +104,7 @@ namespace depspawn {
       /// Only one thread (the one that completed the task associated to the last dependency)
       /// calls this function, after an atomic decenment zeroes ndependencies
       void post() {
-        status = Ready;
+        status = Status_t::Ready;
         master_task->spawn((tbb::task&)*task);
       }
       

@@ -382,7 +382,7 @@ namespace depspawn {
       /// Runs the stolen function
       void run() final {
       
-        ctx_->status = Running;
+        ctx_->status = Workitem::Status_t::Running;
       
         enum_thr_spec_father.local() = ctx_;
       
@@ -390,7 +390,7 @@ namespace depspawn {
       
         //Always legal to do this
         if(ctx_->nchildren == 1) {
-          ctx_->status = Done;
+          ctx_->status = Workitem::Status_t::Done;
         }
       
         //ctx_->guard_ will be 2 if associated task did not begin wait or is waiting
@@ -447,7 +447,7 @@ namespace depspawn {
       {
         if (ctx_->guard_.compare_and_swap(1, 0) == 0) {
       
-          ctx_->status = Running;
+          ctx_->status = Workitem::Status_t::Running;
       
           enum_thr_spec_father.local() = ctx_;
       

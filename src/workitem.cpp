@@ -38,7 +38,7 @@ namespace depspawn {
   namespace internal {
     
     Workitem::Workitem(arg_info *iargs, int nargs) :
-    status(Filling), optFlags_(0), nargs_(static_cast<char>(nargs)),
+    status(Status_t::Filling), optFlags_(0), nargs_(static_cast<char>(nargs)),
     args(iargs), next(nullptr), father(enum_thr_spec_father.local()),
     task(nullptr), deps(nullptr), lastdep(nullptr)
     {
@@ -53,7 +53,7 @@ namespace depspawn {
     
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
-      if( (status == Ready) && (guard_.compare_and_swap(1, 0) == 0) ) {
+      if( (status == Status_t::Ready) && (guard_.compare_and_swap(1, 0) == 0) ) {
         ret = task->steal();
         guard_ = 2;
       }
@@ -83,7 +83,7 @@ namespace depspawn {
 #ifdef DEPSPAWN_FAST_START
       AbstractBoxedFunction *stolen_abf = nullptr;
       Workitem* fast_arr[FAST_ARR_SZ];
-      int nready = 0;
+      int nready = 0, nfillwait = 0;
 #endif
       
       task = itask;
@@ -105,15 +105,15 @@ namespace depspawn {
         }
         if(p == ancestor) {
           ancestor = p->father;
-          // TODO: is_contained should be adapted to use argv
+          /// TODO: is_contained should be adapted to use argv
           if ( (ancestor != nullptr) && is_contained(this, ancestor)) {
             DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true);
-            optFlags_ |= static_cast<short int>(OptFlags::FatherScape);
+            optFlags_ |= OptFlags::FatherScape;
             break;
           }
         } else {
-          const status_t tmp_status = p->status;
-          if(tmp_status < Done) {
+          const auto tmp_status = p->status;
+          if(tmp_status < Status_t::Done) {
             DEPSPAWN_PROFILEACTION(profile_workitems_in_list_active_lcl++);
             int arg_w_i = 0;
             arg_p = p->args; // preexisting workitem
@@ -152,23 +152,26 @@ namespace depspawn {
                                      ); // END DEPSPAWN_DEBUGACTION
                 if (arg_p->wr &&
                     (arg_w->is_array() ? arg_w->is_contained_array(arg_p) : contains(arg_p, arg_w))) {
-                  nargs--; //printf("%d %d %lu\n", nargs, arg_w_i, arg_w->addr);
+                  nargs--;
+                  /*
                   if (!nargs) {
                     DEPSPAWN_PROFILEACTION(profile_early_termination_lcl = true); //not true actually...
-                    /* The optimal thing would be to just make this goto to leave the main loop and insert
-                     the Workitem waiting. But in tests with repeated spawns this leads to very fast insertion
-                     that slows down the performance. Other advantages of continuing down the list:
-                     - More likely DEPSPAWN_FAST_START and using oldest tasks
-                     - optFlags_ is correctly computed
-                     */
+                    // The optimal thing would be to just make this goto to leave the main loop and insert
+                    // the Workitem waiting. But in tests with repeated spawns this leads to very fast insertion
+                    // that slows down the performance. Other advantages of continuing down the list:
+                    // - More likely DEPSPAWN_FAST_START is triggered and it uses oldest tasks
+                    // - optFlags_ is correctly computed
+      
                     //goto OUT_MAIN_insert_in_worklist_LOOP;
-                    argv[0] = nullptr;
-                    break;
+      
+                      argv[0] = nullptr;
+                    //break; //There is another break anyway there down
                   } else {
+                   */
                     for (int i = arg_w_i; i <= nargs; i++) {
                       argv[i] = argv[i+1];
                     }
-                  }
+                  /*}*/
                 }
                 break;
               } else {
@@ -181,13 +184,15 @@ namespace depspawn {
             }
             
 #ifdef DEPSPAWN_FAST_START
-            if ( p->status == Ready ) {
+            const auto tmp_status = p->status;
+            nfillwait += ( tmp_status < Status_t::Ready );
+            if ( tmp_status == Status_t::Ready ) {
               fast_arr[nready & (FAST_ARR_SZ - 1)] = p;
               nready++;
             }
 #endif
-            if( p->status == Filling ) {
-              optFlags_ |=  static_cast<short int>(OptFlags::PendingFills);
+            if( p->status == Status_t::Filling ) {
+              optFlags_ |=  OptFlags::PendingFills;
             }
           }
         }
@@ -196,7 +201,7 @@ namespace depspawn {
 //OUT_MAIN_insert_in_worklist_LOOP:
       
 #ifdef DEPSPAWN_FAST_START
-      if (nready > FAST_THRESHOLD) {
+      if ((nready > FAST_THRESHOLD) || ((nready > Nthreads) && (nfillwait > FAST_THRESHOLD))) {
         DEPSPAWN_PROFILEACTION(profile_steal_attempts++);
         nready = (nready - 1) & (FAST_ARR_SZ - 1);
         do {
@@ -210,10 +215,10 @@ namespace depspawn {
       // the fast_arr workitems should not have been deallocated
       //status = (!ndependencies) ? Ready : Waiting;
       if (!ndependencies) {
-        status = Ready;
+        status = Status_t::Ready;
         master_task->spawn(*task);
       } else {
-        status = Waiting;
+        status = Status_t::Waiting;
       }
 
 #ifdef DEPSPAWN_FAST_START
@@ -247,7 +252,7 @@ namespace depspawn {
       do {
 
         // Finish work
-        current->status = Done;
+        current->status = Status_t::Done;
       
         /* Without this fence the change of status can be unseen by Workitems that are Filling in */
         tbb::atomic_fence();
@@ -259,14 +264,14 @@ namespace depspawn {
         
         for(p = ph; p && p != this; p = p->next) { //wait until this, not current
       
-          while(p->status == Filling) {}
+          while(p->status == Status_t::Filling) {}
       
           //if(p->status != Deallocatable)
           //  lastkeep = p;
       
-          if(!(p->optFlags_ & static_cast<short int>(OptFlags::PendingFills))) {
-            if(p->optFlags_ & static_cast<short int>(OptFlags::FatherScape)) {
-              if (p->status < Done) { //The father of a Done/Deallocated could be freed
+          if(!(p->optFlags_ & OptFlags::PendingFills)) {
+            if(p->optFlags_ & OptFlags::FatherScape) {
+              if (p->status < Status_t::Done) { //The father of a Done/Deallocated could be freed
                 p = p->father; //the iterator sets p = p->next;
               }
             } else {
@@ -298,7 +303,7 @@ namespace depspawn {
       
         p = current->father;
       
-        current->status = Deallocatable;
+        current->status = Status_t::Deallocatable;
       
         current = p;
 
@@ -312,7 +317,7 @@ namespace depspawn {
         Workitem *last_workitem = this;
         for(p = next; p; p = p->next) {
           last_workitem = p;
-          if(p->status != Deallocatable)
+          if(p->status != Status_t::Deallocatable)
             lastkeep = p;
         }
         
@@ -322,7 +327,7 @@ namespace depspawn {
         if (dp != nullptr) {
 
           for(p = worklist; p != ph; p = p->next) {
-            while(p->status == Filling) { } // Waits until work p has its dependencies
+            while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
             if(! p->optFlags_) {
               break;
             }

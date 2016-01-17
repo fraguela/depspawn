@@ -84,7 +84,7 @@ namespace {
   bool try_to_run(Workitem * w)
   {
     bool success = false;
-    if ( w->status == Ready ) {
+    if ( w->status == Workitem::Status_t::Ready ) {
       AbstractBoxedFunction * const stolen_abf = w->steal();
       if (stolen_abf != nullptr) {
         success = true;
@@ -550,7 +550,7 @@ DEPSPAWN_DEBUGDEFINITION(
       for (p = worklist; p != safe_end; p = p->next) {
         if (fathers.find(p->father) != fathers.end()) { //Workitem in the critical path
           fathers.insert(p); //it could be the father of other tasks that would have to finish
-          if (p->status < Done) {
+          if (p->status < Workitem::Status_t::Done) {
             must_reiterate = true;
             bool helped_here = try_to_run(p);
             helped = helped || helped_here;
