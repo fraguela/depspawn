@@ -1,7 +1,16 @@
 ## Installation</p>
 
 
-These instructions can also be found in the library [documentation](http://fraguela.github.io/depspawn/page_installation.html). Before beginnig, make sure you have the software needed, described in README.md.
+These instructions can also be found in the library [documentation](http://fraguela.github.io/depspawn/page_installation.html). 
+
+### Requirements
+
+
+ * A C++ compiler that supports C++11
+ * [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X) 
+ * [Boost](http://www.boost.org) v1.48 or above
+ * [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
+ * Optionally: [Doxygen](http://www.doxygen.org) for building its documentation
 
 ### Setting up Intel TBB </p>
 

@@ -38,6 +38,8 @@ link_libraries( depspawn tbb tbbmalloc )
 
 if(${UNIX})
   if(${APPLE})
+    #The reason is that in OSX El Capitan (10.11) we need cmake -E env
+    cmake_minimum_required( VERSION 3.1.3 )
     set( CMAKE_MACOSX_RPATH ON )
   else(${APPLE})
     link_libraries( rt )
@@ -57,10 +59,15 @@ endforeach(b)
 
 add_custom_target(check)
 foreach(b ${NOBLITZTESTBINARIES} ${BLITZTESTBINARIES} )
-  add_custom_command(TARGET check PRE_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E echo test ${b} :
-                     COMMAND ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=$ENV{LIBRARY_PATH}:$ENV{LD_LIBRARY_PATH} ${b} || exit 1
-                     COMMAND ${CMAKE_COMMAND} -E echo ------------------------
-                    )
+  
+  add_custom_command(TARGET check PRE_BUILD COMMAND ${CMAKE_COMMAND} -E echo test ${b} :)
+  if(${APPLE})                   
+    add_custom_command(TARGET check PRE_BUILD 
+                      COMMAND ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=$ENV{LIBRARY_PATH}:$ENV{LD_LIBRARY_PATH} ${b} || exit 1)
+  else(${APPLE})
+    add_custom_command(TARGET check PRE_BUILD COMMAND ${b} || exit 1)
+  endif(${APPLE})
+  add_custom_command(TARGET check PRE_BUILD COMMAND ${CMAKE_COMMAND} -E echo ------------------------)
+
 endforeach(b)
 add_custom_command(TARGET check PRE_BUILD COMMAND echo "*" TESTS DONE. SUCCESSFUL)
