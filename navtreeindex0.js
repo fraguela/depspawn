@@ -2,12 +2,10 @@ var NAVTREEINDEX0 =
 {
 "annotated.html":[8,0],
 "classdepspawn_1_1_ignore.html":[8,0,0,0],
-"classdepspawn_1_1_ignore.html#a04aafc92879b0761c79efaf8b1fa66da":[8,0,0,0,4],
-"classdepspawn_1_1_ignore.html#a21444d123aa5a8a9c219e0e56984c3a5":[8,0,0,0,3],
 "classdepspawn_1_1_ignore.html#a927a0b8fd3e4c9d70721b2fa00a394ed":[8,0,0,0,0],
 "classdepspawn_1_1_ignore.html#a9d446f7d3b64ba54c102bca34844d0cb":[8,0,0,0,1],
 "classdepspawn_1_1_ignore.html#ac839e514241627cd8e3013e9ea83e9f7":[8,0,0,0,2],
-"classdepspawn_1_1_ignore.html#aec576935902f81df3725b8f220c4440a":[8,0,0,0,5],
+"classdepspawn_1_1_ignore.html#aec576935902f81df3725b8f220c4440a":[8,0,0,0,3],
 "classdepspawn_1_1_observer.html":[8,0,0,1],
 "classdepspawn_1_1_observer.html#a2371aeb6211c8fc7824eae91015f71b2":[8,0,0,1,0],
 "classdepspawn_1_1_observer.html#a763700f0ddce302407fbdeda2cb7fec0":[8,0,0,1,1],
