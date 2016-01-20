@@ -67,10 +67,10 @@ Please follow the <a class="el" href="pages.html">list of topics</a> covered thi
 
  Depspawn requires:
  - A C++ compiler that supports C++11
- - [Intel (R) Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above
- - [Boost](http://www.boost.org) v1.48 or above
- - [CMake](https://cmake.org) 2.8.7 or above
- - Optionally: [Doxygen](http://www.doxygen.org) for building its documentation
+ - [Intel (R) Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
+ - [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
+ - Optional: [Boost](http://www.boost.org) v1.48 or above (if not available DepSpawn will install the subset it uses)
+ - Optional: [Doxygen](http://www.doxygen.org) for building its documentation
 
 \section sec_insprocedure Procedure
 
@@ -88,8 +88,7 @@ Follow these steps:
 	
 -# Create the temporary directory where the project will be built and enter it :
 
-		mkdir build
-		cd build
+		mkdir build && cd build
 
 -# Generate the files for building DepSpawn in the format that you prefer (Visual Studio projects, nmake makefiles, UNIX makefiles, Mac Xcode projects, ... ) using cmake.
 
@@ -102,6 +101,9 @@ Follow these steps:
 	 Run `ccmake --help` for additional options and details.
 
 	-# Press letter \c c to configure your build.
+	
+	   \warning If CMake cannot find [Boost](http://www.boost.org) it will warn that it will use and install the subset it requires. Just press \c e to exit the help.
+
 	-# Provide the values you wish for the variables that appear in the screen. The most relevant ones are:
 		- `CMAKE_BUILD_TYPE` : String that specifies the build type. Its possible values are empty, Debug, Release, RelWithDebInfo and MinSizeRel.
 		- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
@@ -111,7 +113,7 @@ Follow these steps:
 		- `DEPSPAWN_FAST_START` : If this boolean is \c ON, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
 		- `DEPSPAWN_PROFILE` : When this boolean is \c ON the library gathers statistics about its internal operations.
 		- `DEPSPAWN_SCALABLE_POOL` : This boolean controls whether the library managed its memory by means of the \c tbbmalloc library (if \c ON) or the standard C++ library (if \c OFF).
-	-# When you are done, press \c c to re-configure cmake with the new values.
+	-# When you are done, press \c c to re-configure cmake with the new values. If [Boost](http://www.boost.org) is missing you will get the same warning. Press \c e to exit the help.
 	-# Press \c g to generate the files that will be used to build DepSpawn and exit cmake.
 -# The rest of this explanation assumes that UNIX makefiles were generated in the previous step. 
 
@@ -126,6 +128,7 @@ Follow these steps:
    The installation places
 	- The depspawn library in the subdirectory `lib`
 	- The header files in the subdirectory `include/depspawn`
+	- If [Boost](http://www.boost.org) is missing, the portion required by DepSpawn will be installed in `include/boost`
 	- If [Doxygen](http://www.doxygen.org) is present, a manual in `share/depspawn`
 
 -# (Optional *but stronly advised*) Depspawn provides a slightly modified version of the [Blitz++ library](http://www.sourceforge.net/projects/blitz) that allows to use Blitz++ arrays and subarrays as arguments of the spawned functions, thus providing a very nice notation for array-based computations. The installation of this library, located in the directory `depspawn/depspawn-blitz-0.10`, is based on the traditional `configure` and `make` mechanisms. The installation instructions and Blitz++ documentation are found in the library directory.

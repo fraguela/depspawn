@@ -40,7 +40,15 @@ if (NOT CMAKE_BUILD_TYPE)
       FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
-find_package( Boost REQUIRED )
+find_package( Boost )
+
+if(${Boost_FOUND})
+  include_directories( ${Boost_INCLUDE_DIR} )
+else(${Boost_FOUND})
+  message( WARNING "***********************************************\n           Boost could not be found            \nDepSpawn will use and install a subset of boost\n***********************************************")
+  install( DIRECTORY ./include/boost
+           DESTINATION include )
+endif(${Boost_FOUND})
 
 #message( "Boost Found : " ${Boost_FOUND})
 #message( "InclDir : " ${Boost_INCLUDE_DIR})
@@ -85,7 +93,7 @@ endif(DEPSPAWN_PROFILE)
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x" )
 
-include_directories( ${Boost_INCLUDE_DIR} include )
+include_directories( include )
 
 add_subdirectory( src )
 add_subdirectory( tests )

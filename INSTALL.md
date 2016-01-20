@@ -7,10 +7,10 @@ These instructions can also be found in the library [documentation](http://fragu
 
 
  * A C++ compiler that supports C++11
- * [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X) 
- * [Boost](http://www.boost.org) v1.48 or above
+ * [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
  * [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
- * Optionally: [Doxygen](http://www.doxygen.org) for building its documentation
+ * Optional: [Boost](http://www.boost.org) v1.48 or above (if not available DepSpawn will install the subset it uses)
+ * Optional: [Doxygen](http://www.doxygen.org) for building its documentation
 
 ### Setting up Intel TBB </p>
 
@@ -57,7 +57,11 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
 
 	 Run `ccmake --help` for additional options and details.
 
+
 6. Press letter `c` to configure your build.
+
+   If CMake cannot find [Boost](http://www.boost.org) it will warn that it will use and install the subset it requires. Just press `e` to exit the help.
+
 7. Provide the values you wish for the variables that appear in the screen. The most relevant ones are:
 	- `CMAKE_BUILD_TYPE` : String that specifies the build type. Its possible values are empty, Debug, Release, RelWithDebInfo and MinSizeRel.
 	- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
@@ -67,7 +71,7 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
     - `DEPSPAWN_FAST_START` : If this boolean is `ON`, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
     - `DEPSPAWN_PROFILE` : When this boolean is `ON` the library gathers statistics about its internal operations.
     - `DEPSPAWN_SCALABLE_POOL` : This boolean controls whether the library managed its memory by means of the `tbbmalloc` library (if `ON`) or the standard C++ library (if `OFF`).
-8. When you are done, press `c` to re-configure cmake with the new values.
+8. When you are done, press `c` to re-configure cmake with the new values. If [Boost](http://www.boost.org) is missing you will get the same warning. Press `e` to exit the help.
 9. Press `g` to generate the files that will be used to build DepSpawn and exit cmake.
 10. The rest of this explanation assumes that UNIX makefiles were generated in the previous step. 
 
@@ -82,6 +86,7 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
     The installation places
 	- The depspawn library in the subdirectory `lib`
 	- The header files in the subdirectory `include/depspawn`
+	- If [Boost](http://www.boost.org) is missing, the portion required by DepSpawn will be installed in `include/boost`
 	- If [Doxygen](http://www.doxygen.org) is present, a manual in `share/depspawn`
 
 13. (Optional *but stronly advised*) Depspawn provides a slightly modified version of the [Blitz++ library](http://www.sourceforge.net/projects/blitz) that allows to use Blitz++ arrays and subarrays as arguments of the spawned functions, thus providing a very nice notation for array-based computations. The installation of this library, located in the directory `depspawn/depspawn-blitz-0.10`, is based on the traditional `configure` and `make` mechanisms. The installation instructions and Blitz++ documentation are found in the library directory.
