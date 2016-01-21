@@ -361,6 +361,21 @@ function parameter, while it may be the case that we only want to avoid dependen
 - If a format parameter of a function `f` that used to have type `T` is changed to have type `Ignore<T>`, similarly to what happened with the pointer trick, it will never track or generate dependencies on the argument provided for that parameter. The advantage here is that, contrary to the pointer trick, we can continue to send the argument "as is" to `f` instead of its address.  `Ignore<T>` provides an implicit conversion operator to the type `T` to access its content.
 
 
+\section sec_overloading Overloaded functions
+	
+ The compiler can get confused when there are several versions of the function to spawn. The current approach to solve this is to provide the function type to `spawn` by means of a template argument. Here is an example:
+\code
+	void f(int& i) { ... }
+	
+	void f(float& f) { ... }
+	
+	...
+	
+	spawn<void(&)(int&)>(f, an_int);
+	spawn<void(&)(float&)>(f, a_float);
+\endcode
+
+
 \section sec_sequential Sequential execution
 
  If the macro `SEQUENTIAL_DEPSPAWN` is defined during the compilation of a source file, its `spawn()` operations will be replaced by sequential function invocations.
