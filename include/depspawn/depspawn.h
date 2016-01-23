@@ -358,12 +358,29 @@ namespace depspawn {
       : ctx_(ctx)
       {}
       
-      /// Runs the stolen function
-      virtual void run() = 0;
-      
-      void run_in_env();
+      void run_in_env() {
+        
+        Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+        Workitem *  cur_father_lcl = ref_father_lcl;
+        
+        ctx_->status = Workitem::Status_t::Running;
+        
+        ref_father_lcl = ctx_;
+        
+        this->run();
+        
+        ctx_->finish_execution();
+        
+        ref_father_lcl = cur_father_lcl;
+        
+      }
   
       virtual ~AbstractBoxedFunction() {}
+      
+    protected:
+      
+      /// Runs the stolen function
+      virtual void run() = 0;
     };
     
     /// Function stolen to a task
@@ -378,31 +395,16 @@ namespace depspawn {
       BoxedFunction(Workitem* ctx, Function&& f)
       : AbstractBoxedFunction(ctx), f_(std::move(f))
       {}
+    
+      virtual ~BoxedFunction() {}
+      
+    protected:
       
       /// Runs the stolen function
       void run() final {
-      
-        ctx_->status = Workitem::Status_t::Running;
-      
-        enum_thr_spec_father.local() = ctx_;
-      
         f_();
-      
-        //Always legal to do this
-        if(ctx_->nchildren == 1) {
-          ctx_->status = Workitem::Status_t::Done;
-        }
-      
-        //ctx_->guard_ will be 2 if associated task did not begin wait or is waiting
-        //                     3 if it left
-        if (ctx_->guard_.fetch_and_increment() == 3) {
-          ctx_->finish_execution();
-        }
-      
       }
     
-      virtual ~BoxedFunction() {}
-
     };
     
     /// Provides common function-independent elements for runner tasks
@@ -449,26 +451,21 @@ namespace depspawn {
       
           ctx_->status = Workitem::Status_t::Running;
 
-          enum_thr_spec_father.local() = ctx_;
+          Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+          ref_father_lcl = ctx_;
       
           f_();
       
           //BBF: in case father thread runs a task.
           //Should be farther checked
-          enum_thr_spec_father.local() = nullptr;
+          ref_father_lcl = nullptr;
 
-        } else {
-      
-          while (ctx_->guard_ < 2) { } //Wait for new BoxedFunction to be built
-      
-          //ctx_->guard_ will be 2 only if BoxedFunction is still running
-          if (ctx_->guard_.fetch_and_increment() == 2) {
-            return nullptr;
-          }
+          ctx_->finish_execution();
+          
         }
-    
-        ctx_->finish_execution();
-    
+      
+        ctx_->optFlags_ |= Workitem::OptFlags::TaskRun;
+        
         //set_ref_count(1);
     
         return nullptr;

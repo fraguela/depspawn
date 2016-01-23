@@ -368,13 +368,6 @@ namespace depspawn {
       return false;
     }
     
-    void AbstractBoxedFunction::run_in_env()
-    {
-      Workitem *p = enum_thr_spec_father.local();
-      this->run();
-      enum_thr_spec_father.local() = p;
-    }
-    
     bool is_contained(const Workitem* const w, const Workitem * const ancestor)
     {
       const arg_info *arg_w = w->args;
@@ -518,13 +511,8 @@ DEPSPAWN_DEBUGDEFINITION(
   
   Observer::~Observer()
   { std::unordered_set<internal::Workitem *> fathers({cur_father_});
+    internal::Workitem *p, *safe_end;
     bool must_reiterate;
-    internal::Workitem *p;
-
-    ObserversAtWork.fetch_and_increment(); //disable future attempts to erase Workitems during my activity
-    while (eraser_assigned) {
-      // Wait for current eraser, if any, to finish
-    }
     
     /* if there was a cur_father_, since we are inside it, and limit_ is it or more recent,
      limit_ cannot have been deallocated, so limit_ is a safe limit.
@@ -540,7 +528,15 @@ DEPSPAWN_DEBUGDEFINITION(
      be Filling, but Workitems descended from them could.
      */
     
-    internal::Workitem * const safe_end = (cur_father_ != nullptr) ? limit_ : nullptr;
+    if(cur_father_ != nullptr) {
+      safe_end = limit_;
+    } else {
+      safe_end = nullptr;
+      ObserversAtWork.fetch_and_increment(); //disable future attempts to erase Workitems during my activity
+      while (eraser_assigned) {
+        // Wait for current eraser, if any, to finish
+      }
+    }
     //printf("%p w until %p!=NULL->%p\n", enum_thr_spec_father.local(), cur_father_, limit_);
 
     //The first round always has priority, i.e., is only devoted to the critical path
@@ -574,7 +570,9 @@ DEPSPAWN_DEBUGDEFINITION(
     
     //printf("%p exit\n", enum_thr_spec_father.local());
     
-    ObserversAtWork.fetch_and_decrement(); //I'm done
+    if(cur_father_ == nullptr) {
+      ObserversAtWork.fetch_and_decrement(); //I'm done
+    }
   }
   
 } //namespace depspawn

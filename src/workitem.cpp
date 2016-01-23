@@ -317,7 +317,7 @@ namespace depspawn {
         Workitem *last_workitem = this;
         for(p = next; p; p = p->next) {
           last_workitem = p;
-          if(p->status != Status_t::Deallocatable)
+          if((p->status != Status_t::Deallocatable) || !(p->optFlags_ & OptFlags::TaskRun))
             lastkeep = p;
         }
         
@@ -328,7 +328,7 @@ namespace depspawn {
 
           for(p = worklist; p != ph; p = p->next) {
             while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
-            if(! p->optFlags_) {
+            if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
               break;
             }
           }
