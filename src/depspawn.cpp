@@ -51,6 +51,27 @@ namespace {
 
   using namespace depspawn::internal;
   
+  tbb::atomic<Workitem*> worklist;
+  tbb::atomic<bool> eraser_assigned;
+  tbb::atomic<int> ObserversAtWork;
+  std::function<void(void)> FV = [](){};
+  
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int>
+                             profile_jobs = 0,
+                             profile_steals = 0,
+                             profile_steal_attempts = 0,
+                             profile_early_terminations = 0);
+  
+  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int>
+                             profile_workitems_in_list = 0,
+                             profile_workitems_in_list_active = 0,
+                             profile_workitems_in_list_early_termination = 0,
+                             profile_workitems_in_list_active_early_termination = 0);
+  
+  DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
+  
+  DEPSPAWN_PROFILEDEFINITION(double profile_time_eraser_waiting = 0.);
+
   /// Returns true if the intervals [s1, e1] and [s2, e2] overlap
   template<typename T>
   constexpr bool overlaps_intervals(const T s1, const T e1, const T s2, const T e2)
@@ -87,34 +108,14 @@ namespace {
     if ( w->status == Workitem::Status_t::Ready ) {
       AbstractBoxedFunction * const stolen_abf = w->steal();
       if (stolen_abf != nullptr) {
+        ObserversAtWork.fetch_and_decrement();
         success = true;
-        stolen_abf->run_in_env();
+        stolen_abf->run_in_env(true);
         delete stolen_abf;
       }
     }
     return success;
   }
-  
-  tbb::atomic<Workitem*> worklist;
-  tbb::atomic<bool> eraser_assigned;
-  tbb::atomic<int> ObserversAtWork;
-  std::function<void(void)> FV = [](){};
-
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int>
-                             profile_jobs = 0,
-                             profile_steals = 0,
-                             profile_steal_attempts = 0,
-                             profile_early_terminations = 0);
-
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int>
-                             profile_workitems_in_list = 0,
-                             profile_workitems_in_list_active = 0,
-                             profile_workitems_in_list_early_termination = 0,
-                             profile_workitems_in_list_active_early_termination = 0);
-  
-  DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
-  
-  DEPSPAWN_PROFILEDEFINITION(double profile_time_eraser_waiting = 0.);
   
   DEPSPAWN_PROFILEDEFINITION(
       void profile_display_results(bool reset = false) {
@@ -401,9 +402,34 @@ namespace depspawn {
       return arg_w == nullptr;
     }
     
+    
+    void AbstractBoxedFunction::run_in_env(bool from_wait) {
+      
+      Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+      Workitem *  cur_father_lcl = ref_father_lcl;
+      
+      ctx_->status = Workitem::Status_t::Running;
+      
+      ref_father_lcl = ctx_;
+      
+      this->run();
+
+      if (from_wait) {
+        ObserversAtWork.fetch_and_increment();
+        while (eraser_assigned) {
+          // Wait for current eraser, if any, to finish
+        }
+      }
+      
+      ctx_->finish_execution();
+      
+      ref_father_lcl = cur_father_lcl;
+      
+    }
+    
 DEPSPAWN_DEBUGDEFINITION(
     /// Internal debugging purposes
-    //  expr -a 0 -- depspawn::internal::debug_follow_list((Workitem*)0x000000010424ce70, false)
+    //  expr -a 0 -- depspawn::internal::debug_follow_list(worklist.my_storage.my_value, false)
     void debug_follow_list(Workitem *p, bool doprint) {
       static const int Nstates = (int)Workitem::Status_t::Deallocatable + 1;
       unsigned int stath[Nstates];
@@ -511,8 +537,13 @@ DEPSPAWN_DEBUGDEFINITION(
   
   Observer::~Observer()
   { std::unordered_set<internal::Workitem *> fathers({cur_father_});
-    internal::Workitem *p, *safe_end;
+    internal::Workitem *p;
     bool must_reiterate;
+    
+    ObserversAtWork.fetch_and_increment(); //disable future attempts to erase Workitems during my activity
+    while (eraser_assigned) {
+      // Wait for current eraser, if any, to finish
+    }
     
     /* if there was a cur_father_, since we are inside it, and limit_ is it or more recent,
      limit_ cannot have been deallocated, so limit_ is a safe limit.
@@ -528,15 +559,7 @@ DEPSPAWN_DEBUGDEFINITION(
      be Filling, but Workitems descended from them could.
      */
     
-    if(cur_father_ != nullptr) {
-      safe_end = limit_;
-    } else {
-      safe_end = nullptr;
-      ObserversAtWork.fetch_and_increment(); //disable future attempts to erase Workitems during my activity
-      while (eraser_assigned) {
-        // Wait for current eraser, if any, to finish
-      }
-    }
+    internal::Workitem * const safe_end = (cur_father_ != nullptr) ? limit_ : nullptr;
     //printf("%p w until %p!=NULL->%p\n", enum_thr_spec_father.local(), cur_father_, limit_);
 
     //The first round always has priority, i.e., is only devoted to the critical path
@@ -570,9 +593,7 @@ DEPSPAWN_DEBUGDEFINITION(
     
     //printf("%p exit\n", enum_thr_spec_father.local());
     
-    if(cur_father_ == nullptr) {
-      ObserversAtWork.fetch_and_decrement(); //I'm done
-    }
+    ObserversAtWork.fetch_and_decrement(); //I'm done
   }
   
 } //namespace depspawn

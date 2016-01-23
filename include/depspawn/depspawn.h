@@ -358,22 +358,7 @@ namespace depspawn {
       : ctx_(ctx)
       {}
       
-      void run_in_env() {
-        
-        Workitem *& ref_father_lcl = enum_thr_spec_father.local();
-        Workitem *  cur_father_lcl = ref_father_lcl;
-        
-        ctx_->status = Workitem::Status_t::Running;
-        
-        ref_father_lcl = ctx_;
-        
-        this->run();
-        
-        ctx_->finish_execution();
-        
-        ref_father_lcl = cur_father_lcl;
-        
-      }
+      void run_in_env(bool from_wait);
   
       virtual ~AbstractBoxedFunction() {}
       

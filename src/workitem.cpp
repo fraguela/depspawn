@@ -224,7 +224,7 @@ namespace depspawn {
 #ifdef DEPSPAWN_FAST_START
       if (stolen_abf != nullptr) {
         DEPSPAWN_PROFILEACTION(profile_steals++);
-        stolen_abf->run_in_env();
+        stolen_abf->run_in_env(false);
         delete stolen_abf;
       }
 #endif
@@ -281,6 +281,8 @@ namespace depspawn {
           
         }
         
+        assert(current->status == Status_t::Done);
+        
         // free lists
         //delete ctx_->task;
       
@@ -296,6 +298,8 @@ namespace depspawn {
           current->deps = current->lastdep = nullptr;
         }
       
+        assert(current->status == Status_t::Done);
+        
         if (current->args != nullptr) {
           arg_info::Pool.freeLinkedList(current->args, [](arg_info *i) { if(i->is_array()) delete [] i->array_range; } );
           current->args = nullptr;
@@ -314,7 +318,64 @@ namespace depspawn {
         DEPSPAWN_PROFILEACTION(profile_erases++;);
 
         Workitem *lastkeep = this;
-        Workitem *last_workitem = this;
+        Workitem *last_workitem, *q;
+          
+        int deletable_workitems = 0;
+        assert((this->status >= 0) && (this->status <= Status_t::Deallocatable));
+        assert((lastkeep->status >= 0) && (lastkeep->status <= Status_t::Deallocatable));
+        for(p = lastkeep->next; ; p = p->next) {
+          
+          assert((p == nullptr) || (p->status >= 0) && (p->status <= Status_t::Deallocatable));
+          
+          if( (p == nullptr) ||
+              (p->status != Status_t::Deallocatable) ||
+             !(p->optFlags_ & OptFlags::TaskRun) ) {
+            
+            if (deletable_workitems > 4) { //We ask for a minimum that justifies the cost
+              Workitem *dp = lastkeep->next; // Everything from here will be deleted
+              lastkeep->next = p;
+              assert(dp != nullptr);
+              tbb::atomic_fence();
+              Workitem *nextph = worklist;
+              for(q = nextph; q != ph; q = q->next) {
+                while(q->status == Status_t::Filling) { } // Waits until work q has its dependencies
+                if(! (q->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
+                  break;
+                }
+              }
+              ph = nextph;
+              DEPSPAWN_DEBUGACTION(
+                                   for(q = dp;  q != last_workitem->next; q = q->next) {
+                                     assert(q->args == nullptr);
+                                     assert(q->status == Status_t::Deallocatable);
+                                     assert(q->optFlags_ & OptFlags::TaskRun);
+                                     if (q->deps) {
+                                       printf("%p -> %p\n", q, q->deps);
+                                       assert(q->deps == nullptr);
+                                     }
+                                   }
+                                   ); // END DEPSPAWN_DEBUGACTION
+              //last_workitem->next = nullptr; //Should not be necessary
+              Workitem::Pool.freeLinkedList(dp, last_workitem);
+            }
+            
+            if( p == nullptr) {
+              break;
+            }
+
+            lastkeep = p;
+            deletable_workitems = 0;
+            
+          } else {
+            deletable_workitems++;
+          }
+          
+          last_workitem = p;
+        }
+
+        DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+
+        /*
         for(p = next; p; p = p->next) {
           last_workitem = p;
           if((p->status != Status_t::Deallocatable) || !(p->optFlags_ & OptFlags::TaskRun))
@@ -347,7 +408,7 @@ namespace depspawn {
 
           Workitem::Pool.freeLinkedList(dp, last_workitem);
         }
-        
+        */
         
         eraser_assigned = false;
       }
