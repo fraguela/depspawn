@@ -145,7 +145,7 @@ namespace depspawn {
                 DEPSPAWN_DEBUGACTION(
                                      /* You can be linking to Done's that are waiting for you to Fill-in
                                        but NOT for Deallocatable Workitems */
-                                     if(p->status == Deallocatable) {
+                                     if(p->status == Status_t::Deallocatable) {
                                        printf("%p -> Deallocatable %p (was %d)", this, p, (int)tmp_status);
                                        assert(false);
                                      }

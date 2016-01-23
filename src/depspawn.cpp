@@ -412,7 +412,7 @@ DEPSPAWN_DEBUGDEFINITION(
     /// Internal debugging purposes
     //  expr -a 0 -- depspawn::internal::debug_follow_list((Workitem*)0x000000010424ce70, false)
     void debug_follow_list(Workitem *p, bool doprint) {
-      static const int Nstates = (int)Deallocatable + 1;
+      static const int Nstates = (int)Workitem::Status_t::Deallocatable + 1;
       unsigned int stath[Nstates];
       unsigned int n = 0;
       
@@ -463,6 +463,9 @@ DEPSPAWN_DEBUGDEFINITION(
   void wait_for_subtasks(bool priority)
   {
     internal::Workitem * cur_father = enum_thr_spec_father.local();
+    
+    //printf(" WFS %s\n", cur_father == nullptr ? "0" : "nested");
+    
     if (cur_father == nullptr) {
       wait_for_all();
     } else {
@@ -538,10 +541,11 @@ DEPSPAWN_DEBUGDEFINITION(
      */
     
     internal::Workitem * const safe_end = (cur_father_ != nullptr) ? limit_ : nullptr;
-    
+    //printf("%p w until %p!=NULL->%p\n", enum_thr_spec_father.local(), cur_father_, limit_);
+
     //The first round always has priority, i.e., is only devoted to the critical path
     bool priority = true;
-    
+
     do {
       must_reiterate = false;
       bool helped = false;
@@ -567,6 +571,8 @@ DEPSPAWN_DEBUGDEFINITION(
       priority = helped ? priority : priority_;
       
     } while (must_reiterate);
+    
+    //printf("%p exit\n", enum_thr_spec_father.local());
     
     ObserversAtWork.fetch_and_decrement(); //I'm done
   }

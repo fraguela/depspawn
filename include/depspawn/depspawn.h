@@ -448,11 +448,15 @@ namespace depspawn {
         if (ctx_->guard_.compare_and_swap(1, 0) == 0) {
       
           ctx_->status = Workitem::Status_t::Running;
-      
+
           enum_thr_spec_father.local() = ctx_;
       
           f_();
       
+          //BBF: in case father thread runs a task.
+          //Should be farther checked
+          enum_thr_spec_father.local() = nullptr;
+
         } else {
       
           while (ctx_->guard_ < 2) { } //Wait for new BoxedFunction to be built
