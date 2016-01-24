@@ -447,6 +447,8 @@ namespace depspawn {
 
           ctx_->finish_execution();
           
+        } else {
+          while (ctx_->guard_ < 2) { } //Wait for new BoxedFunction to be built
         }
       
         ctx_->optFlags_ |= Workitem::OptFlags::TaskRun;

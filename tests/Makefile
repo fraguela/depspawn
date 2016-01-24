@@ -19,7 +19,7 @@ NOBLITZTESTBINARIES := super_simple_test mxv_basic test_dep_for_basicchild_stdfu
 BLITZTESTBINARIES   := mxm mxv test_blitz_array testreduction1_fix1
 
 TESTBINARIES := $(NOBLITZTESTBINARIES) $(BLITZTESTBINARIES)
-NOTESTBINARIES := testreduction1_orix mxv_basic_orix test_ignore test_array_sizes bench_spawn
+NOTESTBINARIES := testreduction1_orix mxv_basic_orix test_ignore test_array_sizes bench_spawn fib
 
 BINARIES := $(TESTBINARIES) $(NOTESTBINARIES)
 

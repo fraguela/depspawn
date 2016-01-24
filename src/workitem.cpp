@@ -243,10 +243,8 @@ namespace depspawn {
     }
 
     void Workitem::finish_execution()
-    { Workitem *p, *ph;
-      static std::vector<Workitem *> Dones;
-      static std::vector< std::pair<Workitem *, Workitem*> > Deletable_Sublists;
-      
+    { Workitem *p, *worklist_wait_hint;
+
       if(nchildren.fetch_and_decrement() != 1)
         return;
       
@@ -263,10 +261,10 @@ namespace depspawn {
       
         erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false));
       
-        ph = worklist;
-        //lastkeep = ph;
+        worklist_wait_hint = worklist;
+        //lastkeep = worklist_wait_hint;
         
-        for(p = ph; p && p != this; p = p->next) { //wait until this, not current
+        for(p = worklist_wait_hint; p && p != this; p = p->next) { //wait until this, not current
       
           while(p->status == Status_t::Filling) {}
       
@@ -314,119 +312,129 @@ namespace depspawn {
       } while ((p != nullptr) && (p->nchildren.fetch_and_decrement() == 1));
       
       if(erase) {
-        DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
-        DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
-        DEPSPAWN_PROFILEACTION(profile_erases++);
-
-        Workitem *lastkeep = worklist;
-        Workitem *last_workitem;
-          
-        unsigned int deletable_workitems = 0;
-
-        for(p = lastkeep->next; p != nullptr; p = p->next) {
-
-          if( (p->status < Status_t::Deallocatable) ||
-             !(p->optFlags_ & OptFlags::TaskRun) ) {
-            
-            if(p->status == Status_t::Done) {
-              Dones.push_back(p);
-            }
-            
-            if (deletable_workitems > 4) { //We ask for a minimum that justifies the cost
-              Deletable_Sublists.emplace_back(lastkeep->next, last_workitem); // Deleted sublist
-              lastkeep->next = p;
-              DEPSPAWN_PROFILEACTION(profile_deleted_workitems += deletable_workitems);
-            }
-
-            lastkeep = p;
-            deletable_workitems = 0;
-            
-          } else {
-            deletable_workitems++;
-          }
-          
-          last_workitem = p;
-        }
-
-        if (lastkeep->next != nullptr) {
-          Deletable_Sublists.emplace_back(lastkeep->next, last_workitem);
-          lastkeep->next = nullptr;
-          DEPSPAWN_PROFILEACTION(profile_deleted_workitems += deletable_workitems);
-        }
-        
-        DEPSPAWN_PROFILEACTION(printf("D %u (%u) (%u)\n", profile_deleted_workitems, (unsigned)Dones.size(), (unsigned)Deletable_Sublists.size()));
-        
-        for(p = worklist; p != ph; p = p->next) {
-          while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
-          if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
-            break;
-          }
-        }
-        
-        for (int i = 0; i < Dones.size(); i++) {
-          while (Dones[i]->status == Status_t::Done) { }
-        }
-        Dones.clear();
-        
-        for (int i = 0; i < Deletable_Sublists.size(); i++) {
-          Workitem *begin = Deletable_Sublists[i].first;
-          Workitem *end = Deletable_Sublists[i].second;
-          DEPSPAWN_DEBUGACTION(
-                               for(Workitem *q = begin;  q != end->next; q = q->next) {
-                                 assert(q->args == nullptr);
-                                 assert(q->status == Status_t::Deallocatable);
-                                 assert(q->optFlags_ & OptFlags::TaskRun);
-                                 if (q->deps) {
-                                   printf("%p -> %p\n", q, q->deps);
-                                   assert(q->deps == nullptr);
-                                 }
-                               }
-                               ); // END DEPSPAWN_DEBUGACTION
-          
-          Workitem::Pool.freeLinkedList(begin, end);
-        }
-        Deletable_Sublists.clear();
-        
-        DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
-
-        /*
-        for(p = next; p; p = p->next) {
-          last_workitem = p;
-          if((p->status != Status_t::Deallocatable) || !(p->optFlags_ & OptFlags::TaskRun))
-            lastkeep = p;
-        }
-        
-        Workitem *dp = lastkeep->next; // Everything from here will be deleted
-        lastkeep->next = nullptr;
-        
-        if (dp != nullptr) {
-
-          for(p = worklist; p != ph; p = p->next) {
-            while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
-            if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
-              break;
-            }
-          }
-          
-          DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
-
-          DEPSPAWN_DEBUGACTION(
-                               for(p = dp; p; p = p->next) {
-                                 assert(p-> args == nullptr);
-                                 if (p->deps) {
-                                   printf("%p -> %p\n", p, p->deps);
-                                   assert(p->deps == nullptr);
-                                 }
-                               }
-                               ); // END DEPSPAWN_DEBUGACTION
-
-          Workitem::Pool.freeLinkedList(dp, last_workitem);
-        }
-        */
-        
-        eraser_assigned = false;
+        Clean_worklist(worklist_wait_hint);
       }
       
+    }
+    
+    void Workitem::Clean_worklist(Workitem *worklist_wait_hint)
+    { static std::vector<Workitem *> Dones;
+      static std::vector< std::pair<Workitem *, Workitem*> > Deletable_Sublists;
+
+      DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
+      //DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
+      DEPSPAWN_PROFILEACTION(profile_erases++);
+      
+      Workitem *lastkeep = worklist;
+      Workitem *last_workitem, *p;
+      
+      unsigned int deletable_workitems = 0;
+      
+      for(p = lastkeep->next; p != nullptr; p = p->next) {
+        
+        if( (p->status < Status_t::Deallocatable) ||
+           !(p->optFlags_ & OptFlags::TaskRun) ) {
+          
+          if(p->status == Status_t::Done) {
+            Dones.push_back(p);
+          }
+          
+          if (deletable_workitems > 4) { //We ask for a minimum that justifies the cost
+            Deletable_Sublists.emplace_back(lastkeep->next, last_workitem); // Deleted sublist
+            lastkeep->next = p;
+            //DEPSPAWN_PROFILEACTION(profile_deleted_workitems += deletable_workitems);
+          }
+          
+          lastkeep = p;
+          deletable_workitems = 0;
+          
+        } else {
+          deletable_workitems++;
+        }
+        
+        last_workitem = p;
+      }
+      
+      if (lastkeep->next != nullptr) {
+        Deletable_Sublists.emplace_back(lastkeep->next, last_workitem);
+        lastkeep->next = nullptr;
+        //DEPSPAWN_PROFILEACTION(profile_deleted_workitems += deletable_workitems);
+      }
+      
+      //DEPSPAWN_PROFILEACTION(printf("D %u (%u) (%u) %c\n", profile_deleted_workitems, (unsigned)Dones.size(), (unsigned)Deletable_Sublists.size(), ));
+      
+      for(p = worklist; p != worklist_wait_hint; p = p->next) {
+        
+        while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
+        
+        if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
+          break;
+        }
+        
+      }
+      
+      for (int i = 0; i < Dones.size(); i++) {
+        while (Dones[i]->status == Status_t::Done) { }
+      }
+      Dones.clear();
+      
+      for (int i = 0; i < Deletable_Sublists.size(); i++) {
+        Workitem *begin = Deletable_Sublists[i].first;
+        Workitem *end = Deletable_Sublists[i].second;
+        DEPSPAWN_DEBUGACTION(
+                             for(Workitem *q = begin;  q != end->next; q = q->next) {
+                               assert(q->args == nullptr);
+                               assert(q->status == Status_t::Deallocatable);
+                               assert(q->optFlags_ & OptFlags::TaskRun);
+                               if (q->deps) {
+                                 printf("%p -> %p\n", q, q->deps);
+                                 assert(q->deps == nullptr);
+                               }
+                             }
+                             ); // END DEPSPAWN_DEBUGACTION
+        
+        Workitem::Pool.freeLinkedList(begin, end);
+      }
+      Deletable_Sublists.clear();
+      
+      DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+      
+      /*
+       for(p = next; p; p = p->next) {
+       last_workitem = p;
+       if((p->status != Status_t::Deallocatable) || !(p->optFlags_ & OptFlags::TaskRun))
+       lastkeep = p;
+       }
+       
+       Workitem *dp = lastkeep->next; // Everything from here will be deleted
+       lastkeep->next = nullptr;
+       
+       if (dp != nullptr) {
+       
+       for(p = worklist; p != worklist_wait_hint; p = p->next) {
+       while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
+       if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
+       break;
+       }
+       }
+       
+       DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+       
+       DEPSPAWN_DEBUGACTION(
+       for(p = dp; p; p = p->next) {
+       assert(p-> args == nullptr);
+       if (p->deps) {
+       printf("%p -> %p\n", p, p->deps);
+       assert(p->deps == nullptr);
+       }
+       }
+       ); // END DEPSPAWN_DEBUGACTION
+       
+       Workitem::Pool.freeLinkedList(dp, last_workitem);
+       }
+       */
+      
+      eraser_assigned = false;
     }
     
   } //namespace internal

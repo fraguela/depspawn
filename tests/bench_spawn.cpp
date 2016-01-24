@@ -40,7 +40,7 @@
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
-#define N      100000
+#define N      400000
 
 using namespace depspawn;
 
