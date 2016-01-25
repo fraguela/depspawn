@@ -55,9 +55,17 @@ namespace depspawn {
     
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
-      if( (status == Status_t::Ready) && (guard_.compare_and_swap(1, 0) == 0) ) {
-        ret = task->steal();
-        guard_ = 2;
+      if( (status == Status_t::Ready) && (!guard_.fetch_and_increment()) ) {
+        ret = task->steal(this);
+        //Cancel task?
+        Workitem * const ctx_copy = task->ctx_.fetch_and_store(nullptr); //After this the task may have been deallocated
+        if (ctx_copy == nullptr) { //if task began execution
+          while (guard_ < 2) { } //Wait for task to try fetch_and_increment
+        }
+        guard_ = 3; //After this the task may have been deallocated
+        //There is a *totally minimal* chance that after this point, even after we waited for the
+        //guard_ to be 2 if (ctx_copy == nullptr), the task goes to sleep and this workitem is
+        //deallocated, breaking the task access to it.
       }
       return ret;
     }
@@ -332,8 +340,7 @@ namespace depspawn {
       
       for(p = lastkeep->next; p != nullptr; p = p->next) {
         
-        if( (p->status < Status_t::Deallocatable) ||
-           !(p->optFlags_ & OptFlags::TaskRun) ) {
+        if( p->status != Status_t::Deallocatable ) {
           
           if(p->status == Status_t::Done) {
             Dones.push_back(p);
@@ -385,7 +392,6 @@ namespace depspawn {
                              for(Workitem *q = begin;  q != end->next; q = q->next) {
                                assert(q->args == nullptr);
                                assert(q->status == Status_t::Deallocatable);
-                               assert(q->optFlags_ & OptFlags::TaskRun);
                                if (q->deps) {
                                  printf("%p -> %p\n", q, q->deps);
                                  assert(q->deps == nullptr);
@@ -401,9 +407,9 @@ namespace depspawn {
       
       /*
        for(p = next; p; p = p->next) {
-       last_workitem = p;
-       if((p->status != Status_t::Deallocatable) || !(p->optFlags_ & OptFlags::TaskRun))
-       lastkeep = p;
+         last_workitem = p;
+         if( p->status != Status_t::Deallocatable )
+         lastkeep = p;
        }
        
        Workitem *dp = lastkeep->next; // Everything from here will be deleted

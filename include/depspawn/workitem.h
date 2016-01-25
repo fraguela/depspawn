@@ -59,8 +59,7 @@ namespace depspawn {
       struct OptFlags {
         enum internal_OptFlags : short int {
           PendingFills = 1,
-          FatherScape  = 2,
-          TaskRun      = 4
+          FatherScape  = 2
         };
       };
       

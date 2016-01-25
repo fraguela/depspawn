@@ -395,7 +395,7 @@ namespace depspawn {
     /// Provides common function-independent elements for runner tasks
     struct AbstractRunner : public tbb::task {
 
-      Workitem * const ctx_; ///< Workitem associated to this runner task
+      tbb::atomic<Workitem *> ctx_; ///< Workitem associated to this runner task
       
       /// Constructor
       /// \param ctx  Workitem associated to this runner task
@@ -404,7 +404,7 @@ namespace depspawn {
       { }
 
       /// Steal the work of this runner task
-      virtual AbstractBoxedFunction * steal() = 0;
+      virtual AbstractBoxedFunction * steal(Workitem *ctx) = 0;
       
       virtual ~AbstractRunner() {}
     };
@@ -425,34 +425,40 @@ namespace depspawn {
       { }
       
       /// Steal the work of this runner
-      AbstractBoxedFunction * steal() final {
-        return new BoxedFunction<Function>(ctx_, std::move(f_));
+      AbstractBoxedFunction * steal(Workitem *ctx) final {
+        //Danger: ctx_ could have been already nullified by execute()
+        //so the stealer sends it just in case
+        return new BoxedFunction<Function>(ctx, std::move(f_));
       }
   
       /// Task execution
       tbb::task* execute() 
       {
-        if (ctx_->guard_.compare_and_swap(1, 0) == 0) {
-      
-          ctx_->status = Workitem::Status_t::Running;
-
-          Workitem *& ref_father_lcl = enum_thr_spec_father.local();
-          ref_father_lcl = ctx_;
-      
-          f_();
-      
-          //BBF: in case father thread runs a task.
-          //Should be farther checked
-          ref_father_lcl = nullptr;
-
-          ctx_->finish_execution();
-          
-        } else {
-          while (ctx_->guard_ < 2) { } //Wait for new BoxedFunction to be built
-        }
-      
-        ctx_->optFlags_ |= Workitem::OptFlags::TaskRun;
+        Workitem * const ctx_copy = ctx_.fetch_and_store(nullptr);
         
+        if (ctx_copy != nullptr) {
+          
+          if (!ctx_copy->guard_.fetch_and_increment()) {
+            
+            ctx_copy->status = Workitem::Status_t::Running;
+            
+            Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+            ref_father_lcl = ctx_copy;
+            
+            f_();
+            
+            //BBF: in case father thread runs a task.
+            //Should be farther checked
+            ref_father_lcl = nullptr;
+            
+            ctx_copy->finish_execution();
+            
+          } else {
+            while (ctx_copy->guard_ < 3) { } //Wait for new BoxedFunction to be built
+          }
+          
+        }
+
         //set_ref_count(1);
     
         return nullptr;
