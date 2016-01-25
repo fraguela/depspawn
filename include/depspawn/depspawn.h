@@ -171,6 +171,22 @@ namespace depspawn {
       typedef std::function<signature> type;
     };
     
+    /* For pointer to member function spawn in Apple clang. 
+       We choose ClassT& for the std::function 1st arg */
+    template<typename ClassT, typename R, typename... Arg>
+    struct function_type<R (ClassT::*) (Arg...)> {
+      typedef R signature (ClassT&, Arg...);
+      typedef std::function<signature> type;
+    };
+
+    /* For pointer to member function spawn in Apple clang.
+       We choose ClassT& for the std::function 1st arg */
+    template<typename ClassT, typename R, typename... Arg>
+    struct function_type<R (ClassT::*) (Arg...) const> {
+      typedef R signature (const ClassT&, Arg...);
+      typedef std::function<signature> type;
+    };
+    
     template<typename F>
     typename function_type<F>::type make_function(F && f)
     {
@@ -553,13 +569,38 @@ typedef void spawn_ret_t;
   
   /// Spawns a lambda function
   template<typename Function, typename... Args>
-  typename std::enable_if< ! std::is_reference<Function>::value, internal::spawn_ret_t >::type
+  typename std::enable_if< ! std::is_reference<Function>::value &&
+                           ! std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
   spawn(Function&& fl, Args&&... args) {
     typedef typename internal::function_type<Function>::signature signature_type;
     typedef boost::function_types::parameter_types<signature_type> parameter_types;
 
     const std::function<signature_type> f = internal::make_function(std::forward<Function>(fl));
     INLINED_IN_SPAWN(parameter_types);
+  }
+
+  /// Spawns a pointer to member function
+  template<typename Function, typename... Args>
+  typename std::enable_if< std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
+  spawn(Function f1, Args&&... args) {
+    /* with "Function f" : Works fine for gcc 4.7.1 and 5.3.0, but not Apple's clang :((
+    typedef boost::function_types::parameter_types<Function> parameter_types;
+    */
+    typedef typename internal::function_type<Function>::signature signature_type;
+    typedef boost::function_types::parameter_types<signature_type> parameter_types;
+    
+    const std::function<signature_type> f = internal::make_function(std::forward<Function>(f1));
+    INLINED_IN_SPAWN(parameter_types);
+  }
+
+  /// Spawns a functor, but only if there is a single operator()
+  template<typename T, typename... Args>
+  typename std::enable_if< std::is_reference<T>::value &&
+                         ! std::is_member_function_pointer<typename std::remove_reference<T>::type>::value &&
+                         ! std::is_function<typename std::remove_reference<T>::type>::value, internal::spawn_ret_t >::type
+  spawn(T&& functor, Args&&... args) {
+    typedef typename std::remove_reference<T>::type base_type;
+    return spawn(& base_type::operator(), std::forward<T>(functor), std::forward<Args>(args)...);
   }
 
 #endif // SEQUENTIAL_DEPSPAWN
