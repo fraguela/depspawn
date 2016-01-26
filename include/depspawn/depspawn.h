@@ -195,6 +195,18 @@ namespace depspawn {
     }
     ///@}
     
+    /// \name Detects std::function and boost:function objects
+    ///@{
+    template<typename T>
+    struct is_function_object :public boost::false_type {};
+    
+    template<typename T>
+    struct is_function_object<std::function<T>> : public boost::true_type {};
+    
+    template<typename T>
+    struct is_function_object<boost::function<T>> : public boost::true_type {};
+    ///@}
+    
     /// Data type for the base address of task arguments
     typedef size_t value_t;
     
@@ -341,11 +353,9 @@ namespace depspawn {
 
 } //namespace depspawn
 
-#ifdef DEPSPAWN_ALT
-#include "depspawn/workitem_alt.h"
-#else
+
 #include "depspawn/workitem.h"
-#endif
+
 
 namespace depspawn {
   
@@ -597,7 +607,8 @@ typedef void spawn_ret_t;
   template<typename T, typename... Args>
   typename std::enable_if< std::is_reference<T>::value &&
                          ! std::is_member_function_pointer<typename std::remove_reference<T>::type>::value &&
-                         ! std::is_function<typename std::remove_reference<T>::type>::value, internal::spawn_ret_t >::type
+                         ! std::is_function<typename std::remove_reference<T>::type>::value &&
+                         ! internal::is_function_object<typename std::remove_reference<T>::type>::value, internal::spawn_ret_t >::type
   spawn(T&& functor, Args&&... args) {
     typedef typename std::remove_reference<T>::type base_type;
     return spawn(& base_type::operator(), std::forward<T>(functor), std::forward<Args>(args)...);

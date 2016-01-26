@@ -598,9 +598,7 @@ DEPSPAWN_DEBUGDEFINITION(
   
 } //namespace depspawn
 
-#ifdef DEPSPAWN_ALT
-#include "workitem_alt.cpp"
-#else
+
 #include "workitem.cpp"
-#endif
+
 
