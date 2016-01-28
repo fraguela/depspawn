@@ -36,8 +36,9 @@ var NAVTREEINDEX0 =
 "page_tbb_config.html":[2],
 "page_trickstips.html":[6],
 "page_trickstips.html#sec_ignore":[6,2],
+"page_trickstips.html#sec_overloading":[6,3],
 "page_trickstips.html#sec_pointertrick":[6,1],
-"page_trickstips.html#sec_sequential":[6,3],
+"page_trickstips.html#sec_sequential":[6,4],
 "page_trickstips.html#sec_stdmove":[6,0],
 "pages.html":[]
 };
