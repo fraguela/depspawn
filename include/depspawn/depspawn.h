@@ -171,12 +171,40 @@ namespace depspawn {
       typedef std::function<signature> type;
     };
     
+    /* For pointer to member function spawn in Apple clang. 
+       We choose ClassT& for the std::function 1st arg */
+    template<typename ClassT, typename R, typename... Arg>
+    struct function_type<R (ClassT::*) (Arg...)> {
+      typedef R signature (ClassT&, Arg...);
+      typedef std::function<signature> type;
+    };
+
+    /* For pointer to member function spawn in Apple clang.
+       We choose ClassT& for the std::function 1st arg */
+    template<typename ClassT, typename R, typename... Arg>
+    struct function_type<R (ClassT::*) (Arg...) const> {
+      typedef R signature (const ClassT&, Arg...);
+      typedef std::function<signature> type;
+    };
+    
     template<typename F>
     typename function_type<F>::type make_function(F && f)
     {
       typedef typename function_type<F>::type result_type;
       return result_type(std::forward<F>(f));
     }
+    ///@}
+    
+    /// \name Detects std::function and boost:function objects
+    ///@{
+    template<typename T>
+    struct is_function_object :public boost::false_type {};
+    
+    template<typename T>
+    struct is_function_object<std::function<T>> : public boost::true_type {};
+    
+    template<typename T>
+    struct is_function_object<boost::function<T>> : public boost::true_type {};
     ///@}
     
     /// Data type for the base address of task arguments
@@ -325,11 +353,9 @@ namespace depspawn {
 
 } //namespace depspawn
 
-#ifdef DEPSPAWN_ALT
-#include "depspawn/workitem_alt.h"
-#else
+
 #include "depspawn/workitem.h"
-#endif
+
 
 namespace depspawn {
   
@@ -358,12 +384,14 @@ namespace depspawn {
       : ctx_(ctx)
       {}
       
-      /// Runs the stolen function
-      virtual void run() = 0;
-      
-      void run_in_env();
+      void run_in_env(bool from_wait);
   
       virtual ~AbstractBoxedFunction() {}
+      
+    protected:
+      
+      /// Runs the stolen function
+      virtual void run() = 0;
     };
     
     /// Function stolen to a task
@@ -378,37 +406,22 @@ namespace depspawn {
       BoxedFunction(Workitem* ctx, Function&& f)
       : AbstractBoxedFunction(ctx), f_(std::move(f))
       {}
+    
+      virtual ~BoxedFunction() {}
+      
+    protected:
       
       /// Runs the stolen function
       void run() final {
-      
-        ctx_->status = Workitem::Status_t::Running;
-      
-        enum_thr_spec_father.local() = ctx_;
-      
         f_();
-      
-        //Always legal to do this
-        if(ctx_->nchildren == 1) {
-          ctx_->status = Workitem::Status_t::Done;
-        }
-      
-        //ctx_->guard_ will be 2 if associated task did not begin wait or is waiting
-        //                     3 if it left
-        if (ctx_->guard_.fetch_and_increment() == 3) {
-          ctx_->finish_execution();
-        }
-      
       }
     
-      virtual ~BoxedFunction() {}
-
     };
     
     /// Provides common function-independent elements for runner tasks
     struct AbstractRunner : public tbb::task {
 
-      Workitem * const ctx_; ///< Workitem associated to this runner task
+      tbb::atomic<Workitem *> ctx_; ///< Workitem associated to this runner task
       
       /// Constructor
       /// \param ctx  Workitem associated to this runner task
@@ -417,7 +430,7 @@ namespace depspawn {
       { }
 
       /// Steal the work of this runner task
-      virtual AbstractBoxedFunction * steal() = 0;
+      virtual AbstractBoxedFunction * steal(Workitem *ctx) = 0;
       
       virtual ~AbstractRunner() {}
     };
@@ -438,33 +451,40 @@ namespace depspawn {
       { }
       
       /// Steal the work of this runner
-      AbstractBoxedFunction * steal() final {
-        return new BoxedFunction<Function>(ctx_, std::move(f_));
+      AbstractBoxedFunction * steal(Workitem *ctx) final {
+        //Danger: ctx_ could have been already nullified by execute()
+        //so the stealer sends it just in case
+        return new BoxedFunction<Function>(ctx, std::move(f_));
       }
   
       /// Task execution
       tbb::task* execute() 
       {
-        if (ctx_->guard_.compare_and_swap(1, 0) == 0) {
-      
-          ctx_->status = Workitem::Status_t::Running;
-      
-          enum_thr_spec_father.local() = ctx_;
-      
-          f_();
-      
-        } else {
-      
-          while (ctx_->guard_ < 2) { } //Wait for new BoxedFunction to be built
-      
-          //ctx_->guard_ will be 2 only if BoxedFunction is still running
-          if (ctx_->guard_.fetch_and_increment() == 2) {
-            return nullptr;
+        Workitem * const ctx_copy = ctx_.fetch_and_store(nullptr);
+        
+        if (ctx_copy != nullptr) {
+          
+          if (!ctx_copy->guard_.fetch_and_increment()) {
+            
+            ctx_copy->status = Workitem::Status_t::Running;
+            
+            Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+            ref_father_lcl = ctx_copy;
+            
+            f_();
+            
+            //BBF: in case father thread runs a task.
+            //Should be farther checked
+            ref_father_lcl = nullptr;
+            
+            ctx_copy->finish_execution();
+            
+          } else {
+            while (ctx_copy->guard_ < 3) { } //Wait for new BoxedFunction to be built
           }
+          
         }
-    
-        ctx_->finish_execution();
-    
+
         //set_ref_count(1);
     
         return nullptr;
@@ -559,13 +579,39 @@ typedef void spawn_ret_t;
   
   /// Spawns a lambda function
   template<typename Function, typename... Args>
-  typename std::enable_if< ! std::is_reference<Function>::value, internal::spawn_ret_t >::type
+  typename std::enable_if< ! std::is_reference<Function>::value &&
+                           ! std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
   spawn(Function&& fl, Args&&... args) {
     typedef typename internal::function_type<Function>::signature signature_type;
     typedef boost::function_types::parameter_types<signature_type> parameter_types;
 
     const std::function<signature_type> f = internal::make_function(std::forward<Function>(fl));
     INLINED_IN_SPAWN(parameter_types);
+  }
+
+  /// Spawns a pointer to member function
+  template<typename Function, typename... Args>
+  typename std::enable_if< std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
+  spawn(Function f1, Args&&... args) {
+    /* with "Function f" : Works fine for gcc 4.7.1 and 5.3.0, but not Apple's clang :((
+    typedef boost::function_types::parameter_types<Function> parameter_types;
+    */
+    typedef typename internal::function_type<Function>::signature signature_type;
+    typedef boost::function_types::parameter_types<signature_type> parameter_types;
+    
+    const std::function<signature_type> f = internal::make_function(std::forward<Function>(f1));
+    INLINED_IN_SPAWN(parameter_types);
+  }
+
+  /// Spawns a functor, but only if there is a single operator()
+  template<typename T, typename... Args>
+  typename std::enable_if< std::is_reference<T>::value &&
+                         ! std::is_member_function_pointer<typename std::remove_reference<T>::type>::value &&
+                         ! std::is_function<typename std::remove_reference<T>::type>::value &&
+                         ! internal::is_function_object<typename std::remove_reference<T>::type>::value, internal::spawn_ret_t >::type
+  spawn(T&& functor, Args&&... args) {
+    typedef typename std::remove_reference<T>::type base_type;
+    return spawn(& base_type::operator(), std::forward<T>(functor), std::forward<Args>(args)...);
   }
 
 #endif // SEQUENTIAL_DEPSPAWN

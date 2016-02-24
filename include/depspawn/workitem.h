@@ -111,6 +111,8 @@ namespace depspawn {
       /// Steal the work of this ready Workitem or return nullptr if unsuccessful
       AbstractBoxedFunction * steal();
 
+      static void Clean_worklist(Workitem *worklist_wait_hint = nullptr);
+
       /// Class pool
       static Pool_t<Workitem, DEPSPAWN_SCALABLE_POOL> Pool;
 
