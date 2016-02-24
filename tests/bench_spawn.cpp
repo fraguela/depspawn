@@ -35,7 +35,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <unistd.h>
 #include <tbb/tick_count.h>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
@@ -63,7 +62,7 @@ int retstate = 0;
 int global_ntest; ///Used by pr()
 
 void cleanmx() {
-  bzero(mx, sizeof(mx));
+  memset((void *)mx, 0, sizeof(mx));
 }
 
 void pr(const char * s)

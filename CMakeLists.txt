@@ -74,16 +74,16 @@ endif(DEPSPAWN_FAST_START)
 
 if(DEPSPAWN_DUMMY_POOL)
   #Do not use add_definitions because it is already obtained from fixed_defines.h
-  set( DEPSPAWN_DUMMY_POOL_STR "\\#define DEPSPAWN_DUMMY_POOL 1")
+  set( DEPSPAWN_DUMMY_POOL_STR " \#define DEPSPAWN_DUMMY_POOL 1")
 else(DEPSPAWN_DUMMY_POOL)
-  set( DEPSPAWN_DUMMY_POOL_STR "\\#undef DEPSPAWN_DUMMY_POOL")
+  set( DEPSPAWN_DUMMY_POOL_STR " \#undef DEPSPAWN_DUMMY_POOL")
 endif(DEPSPAWN_DUMMY_POOL)
 
 if(DEPSPAWN_SCALABLE_POOL)
   #Do not use add_definitions because it is already obtained from fixed_defines.h
-  set( DEPSPAWN_SCALABLE_POOL_STR "\\#define DEPSPAWN_SCALABLE_POOL true")
+  set( DEPSPAWN_SCALABLE_POOL_STR " \#define DEPSPAWN_SCALABLE_POOL true")
 else(DEPSPAWN_SCALABLE_POOL)
-  set( DEPSPAWN_SCALABLE_POOL_STR "\\#define DEPSPAWN_SCALABLE_POOL false")
+  set( DEPSPAWN_SCALABLE_POOL_STR " \#define DEPSPAWN_SCALABLE_POOL false")
 endif(DEPSPAWN_SCALABLE_POOL)
 
 if(DEPSPAWN_PROFILE)
@@ -105,23 +105,23 @@ if(DOXYGEN_FOUND)
   set(DOXY_DEPS
     ${PROJECT_SOURCE_DIR}/doc/main.dox
     ${PROJECT_SOURCE_DIR}/src/depspawn.cpp
-	${PROJECT_SOURCE_DIR}/src/workitem.cpp
-	${PROJECT_SOURCE_DIR}/include/depspawn/depspawn.h
+    ${PROJECT_SOURCE_DIR}/src/workitem.cpp
+    ${PROJECT_SOURCE_DIR}/include/depspawn/depspawn.h
     ${PROJECT_SOURCE_DIR}/include/depspawn/workitem.h
     ${PROJECT_SOURCE_DIR}/include/depspawn/depspawn_utils.h
-	${PROJECT_SOURCE_DIR}/include/depspawn/LinkedListPool.h
-	${PROJECT_SOURCE_DIR}/include/depspawn/DummyLinkedListPool.h
+    ${PROJECT_SOURCE_DIR}/include/depspawn/LinkedListPool.h
+    ${PROJECT_SOURCE_DIR}/include/depspawn/DummyLinkedListPool.h
   )
   
   add_custom_command( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/doc/html/index.html
     COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
-	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/doc
-	COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/doc ${CMAKE_CURRENT_BINARY_DIR}/doc
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/doc
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/doc ${CMAKE_CURRENT_BINARY_DIR}/doc
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/doc
     MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/doc/Doxyfile
     DEPENDS ${DOXY_DEPS}
     COMMENT "Generating HTML documentation"
-   	)
+  )
 	
   add_custom_target(doc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/doc/html/index.html)
   

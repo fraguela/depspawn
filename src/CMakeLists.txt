@@ -34,11 +34,11 @@ cmake_minimum_required( VERSION 2.8.7 )
 #TODO: Could be protected with an #ifndef... #define... #endif
 add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/include/depspawn/fixed_defines.h
                    COMMAND ${CMAKE_COMMAND} -E echo setting ${DEPSPAWN_DUMMY_POOL_STR}
-				   COMMAND ${CMAKE_COMMAND} -E echo setting ${DEPSPAWN_SCALABLE_POOL_STR}
+		   COMMAND ${CMAKE_COMMAND} -E echo setting ${DEPSPAWN_SCALABLE_POOL_STR}
                    COMMAND ${CMAKE_COMMAND} -E echo ${DEPSPAWN_DUMMY_POOL_STR} > fixed_defines.h
-				   COMMAND ${CMAKE_COMMAND} -E echo ${DEPSPAWN_SCALABLE_POOL_STR} >> fixed_defines.h
-				   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/include/depspawn
-				   COMMENT "Fixing macros that should be consistent in the compilation of the library and the client codes")
+		   COMMAND ${CMAKE_COMMAND} -E echo ${DEPSPAWN_SCALABLE_POOL_STR} >> fixed_defines.h
+		   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/include/depspawn
+		   COMMENT "Fixing macros that should be consistent in the compilation of the library and the client codes")
 
 set_source_files_properties( ${PROJECT_SOURCE_DIR}/include/depspawn/fixed_defines.h PROPERTIES GENERATED TRUE)
 
