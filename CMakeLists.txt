@@ -62,28 +62,28 @@ endif(${Boost_FOUND})
 #message( "CMAKE_BINARY_DIR : " ${CMAKE_BINARY_DIR} )
 #message( "CMAKE_SOURCE_DIR : " ${CMAKE_SOURCE_DIR} )
 
-set( DEPSPAWN_FAST_START     ON  CACHE BOOL "Launcher thread executes tasks when many are enqueued")
-set( DEPSPAWN_DUMMY_POOL     ON  CACHE BOOL "Do not actually use a poll")
-set( DEPSPAWN_SCALABLE_POOL  OFF CACHE BOOL "Use tbb::scalable_malloc/free instead of std::malloc/free")
-set( DEPSPAWN_PROFILE        OFF CACHE BOOL "Do profiling")
+option( DEPSPAWN_FAST_START    "Launcher thread executes tasks when many are enqueued" ON)
+option( DEPSPAWN_DUMMY_POOL    "Do not actually use a pool" ON)
+option( DEPSPAWN_SCALABLE_POOL "Use tbb::scalable_malloc/free instead of std::malloc/free" OFF)
+option( DEPSPAWN_PROFILE       "Do profiling" OFF)
 
 if(DEPSPAWN_FAST_START)
 # Only affects .cpp files, so no need to fix in headers
   add_definitions(-DDEPSPAWN_FAST_START)
 endif(DEPSPAWN_FAST_START)
 
-if(DEPSPAWN_DUMMY_POOL)
-  #Do not use add_definitions because it is already obtained from fixed_defines.h
-  set( DEPSPAWN_DUMMY_POOL_STR " \#define DEPSPAWN_DUMMY_POOL 1")
-else(DEPSPAWN_DUMMY_POOL)
-  set( DEPSPAWN_DUMMY_POOL_STR " \#undef DEPSPAWN_DUMMY_POOL")
-endif(DEPSPAWN_DUMMY_POOL)
+# if(DEPSPAWN_DUMMY_POOL)
+#   #Do not use add_definitions because it is already obtained from fixed_defines.h
+#   set( DEPSPAWN_DUMMY_POOL_STR " \#define DEPSPAWN_DUMMY_POOL 1")
+# else(DEPSPAWN_DUMMY_POOL)
+#   set( DEPSPAWN_DUMMY_POOL_STR " \#undef DEPSPAWN_DUMMY_POOL")
+# endif(DEPSPAWN_DUMMY_POOL)
 
 if(DEPSPAWN_SCALABLE_POOL)
-  #Do not use add_definitions because it is already obtained from fixed_defines.h
-  set( DEPSPAWN_SCALABLE_POOL_STR " \#define DEPSPAWN_SCALABLE_POOL true")
+# Do not use add_definitions because it is already obtained from fixed_defines.h
+  set( DEPSPAWN_SCALABLE_POOL_STR "true")
 else(DEPSPAWN_SCALABLE_POOL)
-  set( DEPSPAWN_SCALABLE_POOL_STR " \#define DEPSPAWN_SCALABLE_POOL false")
+  set( DEPSPAWN_SCALABLE_POOL_STR "false" )
 endif(DEPSPAWN_SCALABLE_POOL)
 
 if(DEPSPAWN_PROFILE)

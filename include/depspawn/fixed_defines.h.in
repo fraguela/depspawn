@@ -33,6 +33,6 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
-/* #undef DEPSPAWN_DUMMY_POOL */
+#cmakedefine DEPSPAWN_DUMMY_POOL
 
-#define DEPSPAWN_SCALABLE_POOL false
+#define DEPSPAWN_SCALABLE_POOL @DEPSPAWN_SCALABLE_POOL_STR@
