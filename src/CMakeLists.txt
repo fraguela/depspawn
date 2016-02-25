@@ -49,11 +49,23 @@ add_library( depspawn STATIC depspawn.cpp ${PROJECT_SOURCE_DIR}/include/depspawn
 
 #install
 
-install( TARGETS depspawn
+install( TARGETS depspawn EXPORT depspawn-targets
          RUNTIME DESTINATION bin
          LIBRARY DESTINATION lib
-         ARCHIVE DESTINATION lib)
+         ARCHIVE DESTINATION lib
+         INCLUDES DESTINATION include )
 
 install( DIRECTORY ../include/depspawn
          DESTINATION include
          FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" )
+
+# downstream install
+
+set( ConfigPackageLocation lib/cmake/depspawn )
+
+configure_file( depspawnConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/depspawnConfig.cmake @ONLY )
+
+install( EXPORT depspawn-targets DESTINATION ${ConfigPackageLocation} FILE depspawn-targets.cmake )
+
+install( FILES ${CMAKE_CURRENT_BINARY_DIR}/depspawnConfig.cmake DESTINATION ${ConfigPackageLocation} )
+

@@ -1,0 +1,24 @@
+
+option( DEPSPAWN_FAST_START "Launcher thread executes tasks when many are enqueued" @DEPSPAWN_FAST_START@ )
+option( DEPSPAWN_PROFILE    "Do profiling" @DEPSPAWN_PROFILE@ )
+
+find_package( Boost )
+
+if(${Boost_FOUND})
+  include_directories( ${Boost_INCLUDE_DIR} )
+endif(${Boost_FOUND})
+
+
+if(DEPSPAWN_FAST_START)
+  add_definitions(-DDEPSPAWN_FAST_START)
+endif(DEPSPAWN_FAST_START)
+
+if(DEPSPAWN_PROFILE)
+  add_definitions(-DDEPSPAWN_PROFILE)
+endif(DEPSPAWN_PROFILE)
+
+get_filename_component(SELF_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include( ${SELF_DIR}/depspawn-targets.cmake )
+
+#get_filename_component( depspawn_INCLUDE_DIR "${SELF_DIR}/../../include" ABSOLUTE)
+include_directories( @CMAKE_INSTALL_PREFIX@/include )
