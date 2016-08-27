@@ -327,7 +327,7 @@ namespace depspawn {
     
     void Workitem::Clean_worklist(Workitem *worklist_wait_hint)
     { static std::vector<Workitem *> Dones;
-      static std::vector< std::pair<Workitem *, Workitem*> > Deletable_Sublists;
+      static std::vector< std::pair<Workitem *, Workitem *> > Deletable_Sublists;
 
       DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
       //DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
@@ -383,11 +383,11 @@ namespace depspawn {
       for (int i = 0; i < Dones.size(); i++) {
         while (Dones[i]->status == Status_t::Done) { }
       }
-      Dones.clear();
+      Dones.clear(); //Needed because it is static!
       
       for (int i = 0; i < Deletable_Sublists.size(); i++) {
-        Workitem *begin = Deletable_Sublists[i].first;
-        Workitem *end = Deletable_Sublists[i].second;
+        Workitem * const begin = Deletable_Sublists[i].first;
+        Workitem * const end = Deletable_Sublists[i].second;
         DEPSPAWN_DEBUGACTION(
                              for(Workitem *q = begin;  q != end->next; q = q->next) {
                                assert(q->args == nullptr);
@@ -401,7 +401,7 @@ namespace depspawn {
         
         Workitem::Pool.freeLinkedList(begin, end);
       }
-      Deletable_Sublists.clear();
+      Deletable_Sublists.clear(); //Needed because it is static!
       
       DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
       
@@ -417,26 +417,26 @@ namespace depspawn {
        
        if (dp != nullptr) {
        
-       for(p = worklist; p != worklist_wait_hint; p = p->next) {
-       while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
-       if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
-       break;
-       }
-       }
+         for(p = worklist; p != worklist_wait_hint; p = p->next) {
+           while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
+           if(! (p->optFlags_ & (OptFlags::PendingFills|OptFlags::FatherScape)) ) {
+             break;
+           }
+         }
        
-       DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+         DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
        
-       DEPSPAWN_DEBUGACTION(
-       for(p = dp; p; p = p->next) {
-       assert(p-> args == nullptr);
-       if (p->deps) {
-       printf("%p -> %p\n", p, p->deps);
-       assert(p->deps == nullptr);
-       }
-       }
-       ); // END DEPSPAWN_DEBUGACTION
+         DEPSPAWN_DEBUGACTION(
+           for(p = dp; p; p = p->next) {
+             assert(p-> args == nullptr);
+             if (p->deps) {
+               printf("%p -> %p\n", p, p->deps);
+               assert(p->deps == nullptr);
+             }
+           }
+         ); // END DEPSPAWN_DEBUGACTION
        
-       Workitem::Pool.freeLinkedList(dp, last_workitem);
+         Workitem::Pool.freeLinkedList(dp, last_workitem);
        }
        */
       

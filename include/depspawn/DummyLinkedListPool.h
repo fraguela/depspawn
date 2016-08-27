@@ -57,16 +57,27 @@ public:
     if(SCALABLE) scalable_free(datain); else std::free(datain);
   }
   
-  /// Return a linked list of items to the pool (just deallocates them all)
+  /// Return a linked list of items to the pool when the end is known (just deallocates them all)
   static void freeLinkedList(T* const datain, T* const last_datain)
-  { T * const end = last_datain->next;
+  { T * const end = static_cast<T *>(last_datain->next);
     
     T * p = datain;
     do {
-      T * next = p->next;
+      T * next = static_cast<T *>(p->next);
       free(p);
       p = next;
     } while(p != end);
+  }
+  
+  /// Return a linked list of items to the pool when the end is unknown (just deallocates them all)
+  void freeLinkedList(T* const datain)
+  {
+    T * p = datain;
+    do {
+      T * next = static_cast<T *>(p->next);
+      free(p);
+      p = next;
+    } while(p != nullptr);
   }
   
   /// Return a linked list of items to the pool (i.e., deallocate), when each one needs to do some clean up
@@ -76,7 +87,7 @@ public:
     T * p = datain;
     do {
       f(p);
-      T * next = p->next;
+      T * next = static_cast<T *>(p->next);
       free(p);
       p = next;
     } while(p != nullptr);

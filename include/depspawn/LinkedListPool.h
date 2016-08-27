@@ -145,7 +145,7 @@ public:
     } while(head_.compare_and_swap(datain, p) != p);
   }
   
-  /// Return a linked list of items to the pool
+  /// Return a linked list of items to the pool when the end is known
   void freeLinkedList(T* const datain, T* const last_datain)
   { T *p;
     
@@ -155,6 +155,24 @@ public:
     } while(head_.compare_and_swap(datain, p) != p);
   }
   
+  /// Return a linked list of items to the pool when the end is unknown
+  void freeLinkedList(T* const datain)
+  {
+    T* p = datain;
+    
+    do {
+      
+      if (p->next == nullptr) {
+        break;
+      } else {
+        p = static_cast<T *>(p->next);
+      }
+      
+    } while (1);
+    
+    freeLinkedList(datain, p);
+  }
+
   /// Return a linked list of items to the pool, when each one needs to do some clean up
   template<typename F>
   void freeLinkedList(T* const datain, F&& f)
@@ -168,7 +186,7 @@ public:
       if (p->next == nullptr) {
         break;
       } else {
-        p = p->next;
+        p = static_cast<T *>(p->next);
       }
       
     } while (1);

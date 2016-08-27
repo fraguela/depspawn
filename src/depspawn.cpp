@@ -195,8 +195,9 @@ namespace depspawn {
     Pool_t<Workitem::_dep, DEPSPAWN_SCALABLE_POOL> Workitem::_dep::Pool(DEPSPAWN_POOL_CHUNK_SZ, DEPSPAWN_MIN_POOL_ITEM_SZ);
     
 #ifdef DEPSPAWN_FAST_START
+    // They are exportable for derived libraries (could be static for DepSpawn itself)
     static const int FAST_ARR_SZ  = 16;
-    static int FAST_THRESHOLD = tbb::tbb_thread::hardware_concurrency() * 2;
+    int FAST_THRESHOLD = tbb::tbb_thread::hardware_concurrency() * 2;
 #endif
 
     int getNumThreads()

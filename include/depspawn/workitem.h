@@ -93,11 +93,16 @@ namespace depspawn {
       /// Build Workitem associated to a list of information on arguments
       Workitem(arg_info *iargs, int nargs);
       
+      /// Destructor
+      /// \internal Only required because of the virtual finish_execution
+      virtual ~Workitem() {}
+      
       /// Provide task with work for this Workitem and insert it in the worklist
       void insert_in_worklist(AbstractRunner* itask);
       
       /// Mark the Workitem as completed and clean up as appropriate
-      void finish_execution();
+      /// \internal marked virtual for derived libraries (unneeded for DepSpawn itself)
+      virtual void finish_execution();
       
       /// \brief Launch this Workitem, which was waiting due to depencendes, for execution
       ///
