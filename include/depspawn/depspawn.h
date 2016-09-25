@@ -344,7 +344,7 @@ namespace depspawn {
     /////////////////////////////////////////
 
     /// Root task, from which all the spawned ones descend
-    extern tbb::task* master_task;
+    extern tbb::task* volatile master_task;
     
     struct AbstractBoxedFunction;
     struct AbstractRunner;

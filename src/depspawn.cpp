@@ -171,7 +171,7 @@ namespace depspawn {
   
   namespace internal {
 
-    tbb::task* master_task = 0;
+    tbb::task* volatile master_task = 0;
     tbb::enumerable_thread_specific<Workitem *> enum_thr_spec_father;
 
     /// \brief Number of threads in use
