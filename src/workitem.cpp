@@ -60,9 +60,10 @@ namespace depspawn {
         //Cancel task?
         Workitem * const ctx_copy = task->ctx_.fetch_and_store(nullptr); //After this the task may have been deallocated
         if (ctx_copy == nullptr) { //if task began execution
-          while (guard_ < 2) { } //Wait for task to try fetch_and_increment
+          guard_.fetch_and_increment(); // Notify we have copied and are ready to go
+          while (guard_ < 4) { } //Wait for task to notify its acknowledgement to ours
         }
-        guard_ = 3; //After this the task may have been deallocated
+        // guard_ = 3; //After this the task may have been deallocated
         //There is a *totally minimal* chance that after this point, even after we waited for the
         //guard_ to be 2 if (ctx_copy == nullptr), the task goes to sleep and this workitem is
         //deallocated, breaking the task access to it.

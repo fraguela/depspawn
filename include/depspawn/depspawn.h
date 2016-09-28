@@ -481,6 +481,7 @@ namespace depspawn {
             
           } else {
             while (ctx_copy->guard_ < 3) { } //Wait for new BoxedFunction to be built
+            ctx_copy->guard_ = 4; // Notify we are leaving
           }
           
         }
