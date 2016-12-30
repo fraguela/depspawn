@@ -22,13 +22,13 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
 
  where `${TBBROOT}` is the directory where TBB has been installed. The file includes the definition of the variable `TBBROOT`, which must point to the directory where TBB has been installed, but it is usually left empty during the installation. For this reason right after intalling TBB you must edit this file to define this variable. In order to do this, open the file and look for a line like
  
-      export TBBROOT="SUBSTITUTE_INSTALL_DIR_HERE"
+        export TBBROOT="SUBSTITUTE_INSTALL_DIR_HERE"
 
  in the case of `tbbvars.sh` or 
 
-      setenv TBBROOT "SUBSTITUTE_INSTALL_DIR_HERE"
+        setenv TBBROOT "SUBSTITUTE_INSTALL_DIR_HERE"
 	  
- in the case of `tbbvars.csh` and put the root directory for your TBB installation between the double quotes.. 
+ in the case of `tbbvars.csh` and put the root directory for your TBB installation between the double quotes.
 
 
 ### Step by step procedure 
@@ -41,13 +41,13 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
 		cd depspawn		
  or clone the project from its repository
  
-	  git clone git@github.com:fraguela/depspawn.git
-	
+	    git clone git@github.com:fraguela/depspawn.git
+
 3. Create the temporary directory where the project will be built and enter it :
 
 		mkdir build && cd build
 
-4. Generate the files for building DepSpawn in the format that you prefer (Visual Studio projects, nmake makefiles, UNIX makefiles, Mac Xcode projects, ... ) using cmake.
+4. Generate the files for building DepSpawn in the format that you prefer (Visual Studio projects, nmake makefiles, UNIX makefiles, Mac Xcode projects, ...) using cmake.
 
     In this process you can use a graphical user interface for cmake such as `cmake-gui` in Unix/Mac OS X or `CMake-gui` in Windows, or a command-line interface such as `ccmake`. The process is explained here assuming this last possibility, as graphical user interfaces are not always available.
  
