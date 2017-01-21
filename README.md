@@ -122,6 +122,8 @@ The best source for starting with DepSpawn is its [online documentation](http://
 
 A more detailed description of the DepSpawn programming model can be found the publication [A framework for argument-based task synchronization with automatic detection of dependencies](http://www.des.udc.es/~basilio/papers/Gonzalez13-DepSpawn.pdf) ([DOI 10.1016/j.parco.2013.04.012](http://dx.doi.org/10.1016/j.parco.2013.04.012)), although it lacks some of the new synchronization mechanisms added in version 1.0.
 
+DepSpawn has been compared to other frameworks with the same goals in the publication [A Comparison of Task Parallel Frameworks based on Implicit Dependencies in Multi-core Environments](https://scholarspace.manoa.hawaii.edu/handle/10125/41914), achieving very good results.
+
 ### License
 
 The source for DepSpawn is licensed under the [GPLv2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) with the [runtime exception](http://www.gnu.org/licenses/gcc-exception-faq.html) simply because [that is the license for the Intel® TBB](https://www.threadingbuildingblocks.org/licensing) threading system it relies on. If you change it to rely on any other threading system, feel free to adapt the license accordingly.
