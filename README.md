@@ -126,7 +126,7 @@ DepSpawn has been compared to other frameworks with the same goals in the public
 
 ### License
 
-The source for DepSpawn is licensed under the [GPLv2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) with the [runtime exception](http://www.gnu.org/licenses/gcc-exception-faq.html) simply because [that is the license for the Intel® TBB](https://www.threadingbuildingblocks.org/licensing) threading system it relies on. If you change it to rely on any other threading system, feel free to adapt the license accordingly.
+DepSpawn is licensed under the [Apache license V2](http://www.apache.org/licenses/) because [that is the license for the Intel® TBB](https://www.threadingbuildingblocks.org/how-tbb-licensed) threading system it relies on. If you change it to rely on any other threading system, feel free to adapt the license accordingly.
 
 <!-- Start of StatCounter Code for Default Guide -->
 <script type="text/javascript">
