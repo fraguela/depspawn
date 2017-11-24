@@ -26,8 +26,7 @@
 
 #include <cstdlib>
 #include <vector>
-#include <tbb/atomic.h>
-#include <tbb/spin_mutex.h>
+#include <atomic>
 #include <tbb/scalable_allocator.h>
 
 /// \brief Provides a common API for heap allocation/deallocation
@@ -59,8 +58,8 @@ class LinkedListPool {
   vector_t v_;            ///< Stores all the chunks allocated by this pool
   const int chunkSize_;   ///< How many holders to allocate each time
   const int minTSize_;    ///< Space allocated for each object
-  tbb::atomic<T *> head_; ///< Current head of the pool
-  tbb::spin_mutex  pool_mutex_; ///< mutex for global critical sections in the pool (only in allocate)
+  std::atomic<T *> head_; ///< Current head of the pool
+  std::atomic_flag pool_mutex_; ///< mutex for global critical sections in the pool (only in allocate)
   
   /// Allocate a new chunk of chunkSize_ elements for the pool
   void allocate() {
@@ -73,14 +72,16 @@ class LinkedListPool {
       baseptr += minTSize_;
       new (p) T();
       p->next = reinterpret_cast<T *>(baseptr); //invalid for p=q. Will be corrected during linking
-      p = p->next;
+      p = static_cast<T *>(p->next);
     } while (baseptr <= endptr);
     
-    tbb::spin_mutex::scoped_lock l(pool_mutex_);
+    while (pool_mutex_.test_and_set(std::memory_order_acquire));
     
     v_.push_back(h);
 
     freeLinkedList(h, q);
+    
+    pool_mutex_.clear(std::memory_order_release);
   }
 
   /* Whether there are at leat \c n elements in the list that starts in \c p,
@@ -110,10 +111,11 @@ public:
   /// \param min_t_size minimum space to allocate for each item.
   LinkedListPool(int chunkSize = 1, int min_t_size = sizeof(T)) :
   chunkSize_(chunkSize),
-  minTSize_(sizeof(T) > min_t_size ? sizeof(T) : min_t_size)
+  minTSize_(sizeof(T) > min_t_size ? sizeof(T) : min_t_size),
+  head_(nullptr),
+  pool_mutex_(ATOMIC_FLAG_INIT)
   {
     //BBF: Test chunkSize > 0 ?
-    head_ = nullptr;
     allocate();
   }
 
@@ -125,27 +127,27 @@ public:
   }
 
   /// Return an item to the pool
-  void free(T* const datain)
+  void free(T* const datain) noexcept
   { T *p;
     
+    p = head_;
     do {
-      p = head_;
       datain->next = p;
-    } while(head_.compare_and_swap(datain, p) != p);
+    } while(!head_.compare_exchange_weak(p, datain)); //while(head_.compare_and_swap(datain, p) != p);
   }
   
   /// Return a linked list of items to the pool when the end is known
-  void freeLinkedList(T* const datain, T* const last_datain)
+  void freeLinkedList(T* const datain, T* const last_datain) noexcept
   { T *p;
     
+    p = head_;
     do {
-      p = head_;
       last_datain->next = p;
-    } while(head_.compare_and_swap(datain, p) != p);
+    } while(!head_.compare_exchange_weak(p, datain)); //while(head_.compare_and_swap(datain, p) != p);
   }
   
   /// Return a linked list of items to the pool when the end is unknown
-  void freeLinkedList(T* const datain)
+  void freeLinkedList(T* const datain) noexcept
   {
     T* p = datain;
     
@@ -185,13 +187,16 @@ public:
   
   /// Get an item from the pool
   T* malloc()
-  { T *ret;
+  { T *ret, *next_val;
     
+    ret = head_;
     do {
-      while((ret = head_) == nullptr) {
+      while(ret == nullptr) {
         allocate();
+        ret = head_;
       }
-    } while(head_.compare_and_swap(ret->next, ret) != ret);
+      next_val = static_cast<T *>(ret->next);
+    } while(!head_.compare_exchange_weak(ret, next_val)); //while(head_.compare_and_swap(next_val, ret) != ret);
     
     //BBF: Notice that we do not make a new (ret) T()
     return ret;
@@ -201,20 +206,23 @@ public:
   template<typename... Args>
   T* malloc(Args&&... args)
   {
-    T *ret = this->malloc();
+    T * const ret = this->malloc();
     new (ret) T(std::forward<Args>(args)...);
     return ret;
   }
   
   /* Not in use, but should be ok.
   T* malloc(int n)
-  { T *ret, *q;
-    
+  { T *ret, *q, *next_val;
+   
+    ret = head_;
     do {
-      while((ret = head_) == nullptr || !length(ret, n, q)) {
+      while((ret == nullptr) || !length(ret, n, q)) {
         allocate();
+        ret = head_;
       }
-    } while(head_.compare_and_swap(q->next, ret) != ret);
+      next_val = static_cast<T *>(q->next);
+    } while(!head_.compare_exchange_weak(ret, next_val)); //while(head_.compare_and_swap(next_val, ret) != ret);
     
     q->next = nullptr;
     return ret;
