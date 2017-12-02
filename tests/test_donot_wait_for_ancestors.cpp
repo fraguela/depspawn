@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -39,7 +39,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 volatile bool isserial[NLEVELS];
 volatile TaskState_t state[NLEVELS];
@@ -55,7 +55,7 @@ void f(int &i, const int level)
 {
   state[level] = TaskState_t::Running;
   
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " level=" << level);
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " level=" << level);
 
 
   bool is_serial = true;
@@ -69,7 +69,7 @@ void f(int &i, const int level)
   
   mywait(2.f);
   
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " level=" << level);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " level=" << level);
   
   for(int j = level+1; j < NLEVELS; j++)
     is_serial = is_serial && (state[j] == TaskState_t::UnRun);
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
   for(int i = 0; i < NLEVELS; i++)
     state[i] = TaskState_t::UnRun;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   std::cout << "Spanning f 0\n";
   spawn(f, x, 0);

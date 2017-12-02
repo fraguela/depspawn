@@ -24,7 +24,7 @@
 #include <cassert>
 #include <iostream>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -100,11 +100,11 @@ int main(int argc, char **argv)
       mx[i][j] = i + j;
   }
   
-  tbb::tick_count t0 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0 = std::chrono::high_resolution_clock::now();
   
   mxv( (Type (&)[BCK])result, (const Type (&)[BCK][N])mx, (const Type (&) [N])v);
   
-  tbb::tick_count t1 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t1 = std::chrono::high_resolution_clock::now();
 
   //matrix - vector product using CHUNKS chunks
   for(i = 0; i < M; i+= BCK) {
@@ -115,10 +115,10 @@ int main(int argc, char **argv)
 
   wait_for_all();
   
-  tbb::tick_count t2 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t2 = std::chrono::high_resolution_clock::now();
   
-  double serial_time = (t1-t0).seconds();
-  double parallel_time = (t2-t1).seconds();
+  double serial_time = std::chrono::duration<double>(t1-t0).count();
+  double parallel_time = std::chrono::duration<double>(t2-t1).count();
   
   std::cout << "Serial time: " << serial_time << "s.  Parallel time: " << parallel_time << "s.\n";
   std::cout << "Speedup (using " << CHUNKS << " chunks): " <<  (serial_time / parallel_time) << std::endl;

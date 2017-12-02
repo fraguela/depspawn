@@ -23,7 +23,7 @@
 #include <iostream>
 #include <ctime>
 #include <thread>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -34,7 +34,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 void mywait(float seconds)
 {
@@ -44,11 +44,11 @@ void mywait(float seconds)
 }
 
 void f(volatile int &i, int j) {
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
   
   mywait(1.5f);
   
-  LOG("f comes back at: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("f comes back at: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
   
   while (i != 3) {
     //g should be able to run before this point of f, and thus let i=3
@@ -56,45 +56,45 @@ void f(volatile int &i, int j) {
   
   i += j;
   
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
 }
 
 void g(volatile int &i, int j) {
-  LOG("g begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("g begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
   
   while(!i) {
     //ignored_dep should be able to run before this point, letting i==1
   }
   i += j;
   
-  LOG("g finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("g finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
 }
 
 void h(volatile int &i, int j) {
-  LOG("h begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("h begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
   
 
   i += j;
   
-  LOG("h finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " j=" << j);
+  LOG("h finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " j=" << j);
 }
 
 void ignored_dep(Ignore<int&> i) {
-  LOG("ignored_dep begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " addr " << i.addr());
+  LOG("ignored_dep begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " addr " << i.addr());
   
   mywait(1.1f);
 
   LOG("ignored_dep ++" << i);
   i++;
   
-  LOG("ignored_dep finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i );
+  LOG("ignored_dep finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i );
 }
 
 void ignored_dep2(Ignore<int> i) {
-  LOG("ignored_dep2 begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " addr " << i.addr());
+  LOG("ignored_dep2 begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " addr " << i.addr());
   i++;
   
-  LOG("ignored_dep2 finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i );
+  LOG("ignored_dep2 finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i );
 }
 
 int main()
@@ -109,7 +109,7 @@ int main()
   
   set_threads();
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
 
   spawn(f, i, 1);
 

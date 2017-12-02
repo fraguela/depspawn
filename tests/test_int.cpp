@@ -24,7 +24,7 @@
 #include <cstdlib>
 //#include <algorithm>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <atomic>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
@@ -38,7 +38,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 
 volatile bool inwritemode = false;
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 bool second_round = false;
 
@@ -62,9 +62,9 @@ void fun(bool readermode, int n = 600) {
 
 void f1(const int *a) 
 { 
-  LOG("f1 " << *a << " begin: " << (tbb::tick_count::now() - t0).seconds()); 
+  LOG("f1 " << *a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count()); 
   fun(false); //It is actually readermode, but it is not a bug it overlaps with f3/f3b
-  LOG("f1 " << *a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f1 " << *a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   x.fetch_add(1);
 }
 
@@ -72,9 +72,9 @@ void f2(const int& a)
 { 
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
   
-  LOG("f2 " << a << " begin: " << (tbb::tick_count::now() - t0).seconds()); 
+  LOG("f2 " << a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count()); 
   fun(true);
-  LOG("f2 " << a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f2 " << a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   x.fetch_add(8);
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
 }
@@ -82,10 +82,10 @@ void f2(const int& a)
 void f2b(const int& a)
 { 
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
-  LOG("f2b " << a << " begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f2b " << a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   //a[0]++;
   fun(true);
-  LOG("f2b " << a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f2b " << a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   x.fetch_add(16);
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
 }
@@ -93,10 +93,10 @@ void f2b(const int& a)
 void f2c(const int& a)
 { 
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
-  LOG("f2c " << a << " begin: " << (tbb::tick_count::now() - t0).seconds()); 
+  LOG("f2c " << a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count()); 
   //a[0]++;
   fun(true);
-  LOG("f2c " << a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f2c " << a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   x.fetch_add(32);
   success_counter.fetch_add((second_round && (x<0)) || (!second_round && (x>=0)));
 }
@@ -105,10 +105,10 @@ void f3(int& a)
 { 
   success_counter.fetch_add(x >= (32 + 16 + 8)); //f2, f2b and f2c must have finished
   inwritemode = true;
-  LOG("-------------\nf3 " << a << " begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("-------------\nf3 " << a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   a++;
   fun(false);
-  LOG("f3 " << a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f3 " << a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   inwritemode = false;
   x.fetch_add(-(32 + 16 + 8));
 }
@@ -117,10 +117,10 @@ void f3b(int& a)
 { 
   success_counter.fetch_add((x >= 0) && (x < 8)); //f3 must have finished
   inwritemode = true;
-  LOG("f3b " << a << " begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f3b " << a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   a++;
   fun(false);
-  LOG("f3b " << a << " end: " << (tbb::tick_count::now() - t0).seconds() << "\n-------------");
+  LOG("f3b " << a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << "\n-------------");
   inwritemode = false;
   x = -256;
   second_round = true;
@@ -128,9 +128,9 @@ void f3b(int& a)
 
 void f5(const int *a)
 { 
-  LOG("f5 " << *a << " begin: " << (tbb::tick_count::now() - t0).seconds()); 
+  LOG("f5 " << *a << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count()); 
   fun(false); //It is actually readermode, but it is not a bug it overlaps with f3/f3b
-  LOG("f5 " << *a << " end: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f5 " << *a << " end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   x.fetch_add(2);
 }
   
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
   x = 0;
   success_counter = 0;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(f1, &a);
   

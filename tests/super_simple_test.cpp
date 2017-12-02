@@ -22,7 +22,7 @@
 
 #include <iostream>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -33,16 +33,16 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 
 
 void f(int &i) {  
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
 
   i = 10;
   
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }
 
 
@@ -51,7 +51,7 @@ int main()
   
   tbb::task_scheduler_init tbbinit;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(f, i);
   

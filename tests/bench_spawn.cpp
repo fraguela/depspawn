@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -39,7 +39,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 
-tbb::tick_count t0, t1, t2;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1, t2;
 
 double total_time = 0.;
 
@@ -56,9 +56,9 @@ void cleanmx() {
 
 void pr(const char * s)
 {
-  double tot = (t2 - t0).seconds();
+  double tot = std::chrono::duration<double>(t2 - t0).count();
   printf("T%2d %31s. ", global_ntest + 1, s);
-  printf("Spawning : %8lf Running: %8lf T:%8lf\n", (t1 - t0).seconds(), (t2 - t1).seconds(), tot);
+  printf("Spawning : %8lf Running: %8lf T:%8lf\n", std::chrono::duration<double>(t1 - t0).count(), std::chrono::duration<double>(t2 - t1).count(), tot);
   total_time += tot;
 }
 
@@ -88,16 +88,16 @@ void f(int i) {
 void test1() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++)
     spawn(f, std::move(i)); //This freezes the value
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != 1) doerror();
@@ -125,16 +125,16 @@ void g(int &i0, int &i1, int& i2, int& i3, int& i4, int& i5, int& i6, int& i7) {
 void test2() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++)
     spawn(g, mx[i][0], mx[i][7], mx[i][1], mx[i][6], mx[i][2], mx[i][5], mx[i][3], mx[i][4]);
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     for (int j = 0; j < 8; ++j) {
@@ -164,16 +164,16 @@ void h(int *i0, int *i1, int* i2, int* i3, int* i4, int* i5, int* i6, int* i7) {
 void test3() 
 {
 
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++)
     spawn(h, &mx[i][0], &mx[i][7], &mx[i][1], &mx[i][6], &mx[i][2], &mx[i][5], &mx[i][3], &mx[i][4]);
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     for (int j = 0; j < 8; ++j) {
@@ -198,15 +198,15 @@ void rec(int i) {
 void test4() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(rec, nsize-1);
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != 1) doerror();
@@ -240,15 +240,15 @@ void rec2(int b, int e) {
 void test5() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(rec2, 0, nsize);
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != 1) doerror();
@@ -273,7 +273,7 @@ void depprev(const int prev, int& out) {
 void test6() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(depprev, mx[0][0], mx[0][0]);
   
@@ -281,11 +281,11 @@ void test6()
     spawn(depprev, mx[i-1][0], mx[i][0]);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != (i+1)) {
@@ -309,17 +309,17 @@ void depsame(int& iout) {
 void test7() 
 {
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depsame, mx[0][0]);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   
   if(mx[0][0] != nsize) {
@@ -340,17 +340,17 @@ void test8()
   //V1: just use it "as is"
   v = 0;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, nthreads, v);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   if(v != (nthreads + 1)) {
     std::cerr << " -> " << v;
@@ -362,17 +362,17 @@ void test8()
   //V2: Freeze it
   v = 0;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, std::move(nthreads), v);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   if(v != (nthreads + 1)) {
     std::cerr << " -> " << v;
@@ -384,17 +384,17 @@ void test8()
   //V3: Ignore it
   v = 0;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, ignore(nthreads), v);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   if(v != (nthreads + 1)) {
     std::cerr << " -> " << v;
@@ -409,17 +409,17 @@ void test9()
 {
   
   //V1: just use it "as is"
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, nthreads, mx[i][0]);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != (nthreads + 1)) {
@@ -432,17 +432,17 @@ void test9()
   pr("f(const_var, diff_int&)");
   
   //V2: Freeze it
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, std::move(nthreads), mx[i][0]);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != (nthreads + 1)) {
@@ -455,17 +455,17 @@ void test9()
   pr("f(frozen const_var, diff_int&)");
   
   //V3: Ignore it
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     spawn(depprev, ignore(nthreads), mx[i][0]);
   }
   
-  t1 = tbb::tick_count::now();
+  t1 = std::chrono::high_resolution_clock::now();
   
   wait_for_all();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
   
   for(int i = 0; i < nsize; i++) {
     if(mx[i][0] != (nthreads + 1)) {

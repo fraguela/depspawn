@@ -22,7 +22,7 @@
 
 #include <iostream>
 #include <ctime>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -32,7 +32,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 int x = 0;
 int y = 0;
@@ -55,13 +55,13 @@ void display()
 }
 /// Adds n units and requires s seconds
 void add(int &i, int n, float s) {
-  LOG("f  begin: " << (tbb::tick_count::now() - t0).seconds() << " with " << name(i) << '=' << i);
+  LOG("f  begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with " << name(i) << '=' << i);
   
   mywait(s);
 
   i += n;
 
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with " << name(i) << '=' << i);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with " << name(i) << '=' << i);
 }
 
 void subtasks_test(bool &test_ok)
@@ -91,7 +91,7 @@ int main()
   
   set_threads();
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(add, x, 2, 1.5f); //Sets x to 2
   spawn(add, x, 1, 1.5f); //Sets x to 3

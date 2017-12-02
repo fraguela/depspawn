@@ -23,7 +23,7 @@
 #include <iostream>
 #include <functional>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -44,14 +44,14 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 
 /////////////////////////////////////////////////////////
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 bool f_finished, success;
 
 //This function runs for long
 void f(int &i) 
 {  
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   
   { // This is just used to make a delay
     A a(400);
@@ -61,7 +61,7 @@ void f(int &i)
   
   i = 10;
   
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
   
   f_finished = true;
 }
@@ -69,24 +69,24 @@ void f(int &i)
 void h(int &i, int s) 
 {
   success = f_finished;
-  LOG("h begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("h begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
   std::cout << "h received i=" << i << std::endl;
   i += s;  
-  LOG("h finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("h finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }  
 
 void g1(int *ptr) 
 {
-  LOG("g1 begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("g1 begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   
   spawn(h, (*ptr), 10);  //h must wait for the dependency on *ptr, which is seen as it is a reference
   
-  LOG("g1 finish: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("g1 finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
 }
 
 void g2(int *ptr) 
 {
-  LOG("g2 begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("g2 begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   
   std::function<void(int&)> binded_h = std::bind(h, std::placeholders::_1, 10);
   
@@ -94,7 +94,7 @@ void g2(int *ptr)
   
   spawn(binded_h, (*ptr));
   
-  LOG("g2 finish: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("g2 finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
 }
 
 
@@ -109,7 +109,7 @@ int main()
   i = 0;
   f_finished = success = false;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   //spawn(f, Ignore<int>(i)); //With this version h does not wait for f
   
@@ -130,7 +130,7 @@ int main()
   i = 0;
   f_finished = success = false;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
 
   //spawn(f, Ignore<int>(i)); //With this version h does not wait for f
   

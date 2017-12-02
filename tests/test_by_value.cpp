@@ -23,7 +23,7 @@
 #include <ctime>
 #include <iostream>
 #include <thread>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -33,7 +33,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 int i = 0, j = 0;
 
@@ -46,7 +46,7 @@ void mywait(float seconds)
 
 //This function runs for long
 void f(volatile int &i) {
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   
   // This is just used to make a delay
   mywait(1.0);
@@ -57,15 +57,15 @@ void f(volatile int &i) {
   
   i = 10;
   
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }
 
 void h(int &i, int s) {
-  LOG("h begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i << " s=" << s );
+  LOG("h begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i << " s=" << s );
   
   i += s;  
   
-  LOG("h finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("h finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }
 
 int main()
@@ -78,7 +78,7 @@ int main()
   
   set_threads();
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
 
   spawn(f, i);      //f runs for long. Sets i=10
   

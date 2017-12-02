@@ -22,7 +22,7 @@
 
 #include <iostream>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -90,19 +90,19 @@ public:
 
 A a(600, "a");
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 void h(A &a, const A& b) {
   const int s = b.size();
   
-  LOG("h " << s << " begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("h " << s << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
   
   //mywait(0.8f);
   
   a(0, 0) += b(0, 0) + 1;
   a(s-1, s-1) += b(s-1, s-1) + a(s-2, s-2) + 10;
   
-  LOG("h " << s << " begin: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("h " << s << " begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
 } 
 
 void g() {
@@ -113,7 +113,7 @@ void g() {
   spawn(h, a, std::move(b)); //Built once, copied 1 time with T& make(T& t). Destroyed 2 times.
   spawn(h, a, A(11, "c")); //Built once, copied 1 times with T& make(T& t). Destroyed 2 times.
 
-  LOG("g " << b.size() << " finish: " << (tbb::tick_count::now() - t0).seconds());
+  LOG("g " << b.size() << " finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count());
 }
 
 
@@ -121,7 +121,7 @@ int main()
 {
   tbb::task_scheduler_init tbbinit;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   g();  //Normal call to g. It could also be a spawn, the problem is the same
   

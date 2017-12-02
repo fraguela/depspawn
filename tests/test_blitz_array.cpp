@@ -23,7 +23,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include <blitz/array.h>
 #include "depspawn/depspawn.h"
@@ -135,28 +135,28 @@ int main(int argc, char **argv)
 
   init_data();
   
-  tbb::tick_count t0 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0 = std::chrono::high_resolution_clock::now();
   
   for (int iter =0; iter < NTIMES; iter++) {
     add(result, a, b);
   }
   
-  tbb::tick_count t1 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t1 = std::chrono::high_resolution_clock::now();
   
   /************ First parallel run ************/
   
   init_data();
   
-  tbb::tick_count t2 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t2 = std::chrono::high_resolution_clock::now();
 
   test<NTIMES, 1>();
   
   wait_for_all();
   
-  tbb::tick_count t3 = tbb::tick_count::now();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t3 = std::chrono::high_resolution_clock::now();
   
-  double serial_time = (t1-t0).seconds();
-  double parallel_time = (t3-t2).seconds();
+  double serial_time = std::chrono::duration<double>(t1-t0).count();
+  double parallel_time = std::chrono::duration<double>(t3-t2).count();
   
   std::cout << "Serial time: " << serial_time << "s.  Parallel time: " << parallel_time << "s.\n";
   std::cout << "Speedup (using " << CHUNKS << " X " << CHUNKS << " chunks): " <<  (serial_time / parallel_time) << std::endl;
@@ -167,15 +167,15 @@ int main(int argc, char **argv)
   
   init_data();
   
-  t2 = tbb::tick_count::now();
+  t2 = std::chrono::high_resolution_clock::now();
 
   test<1, NTIMES>();
   
   wait_for_all();
   
-  t3 = tbb::tick_count::now();
+  t3 = std::chrono::high_resolution_clock::now();
 
-  parallel_time = (t3-t2).seconds();
+  parallel_time = std::chrono::duration<double>(t3-t2).count();
   
   std::cout << "Serial time: " << serial_time << "s.  Parallel time: " << parallel_time << "s.\n";
   std::cout << "Speedup (using " << CHUNKS << " X " << CHUNKS << " chunks): " <<  (serial_time / parallel_time) << std::endl;

@@ -23,7 +23,7 @@
 #include <iostream>
 #include <ctime>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/tick_count.h>
+#include <chrono>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
 
@@ -34,7 +34,7 @@ tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
 #define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 
-tbb::tick_count t0;
+std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
 int x;
 
@@ -47,7 +47,7 @@ void mywait(float seconds)
 }
 
 void longf(float f) {
-  LOG("longf begin: " << (tbb::tick_count::now() - t0).seconds() << " with f=" << f << " x=" << x);
+  LOG("longf begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with f=" << f << " x=" << x);
   
   x = x * 2;
   
@@ -55,26 +55,26 @@ void longf(float f) {
   
   x = x * 2;
   
-  LOG("longf end: " << (tbb::tick_count::now() - t0).seconds() << " with f=" << f << " x=" << x);
+  LOG("longf end: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with f=" << f << " x=" << x);
 }
 
 void f(int &i) {  
-  LOG("f begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("f begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
   
   i++;
   i++;
   
   spawn(longf, 4.0f);
 
-  LOG("f finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("f finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }
 
 void g(int &i) {  
-  LOG("g begin: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("g begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
   
   i++;
   
-  LOG("g finish: " << (tbb::tick_count::now() - t0).seconds() << " with i=" << i);
+  LOG("g finish: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with i=" << i);
 }
 
 
@@ -86,7 +86,7 @@ int main()
   
   tbb::task_scheduler_init tbbinit;
   
-  t0 = tbb::tick_count::now();
+  t0 = std::chrono::high_resolution_clock::now();
   
   spawn(f, x); //Sets x to 8
   
