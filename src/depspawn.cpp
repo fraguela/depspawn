@@ -27,11 +27,11 @@
 #include <cstdio>
 #include <cassert>
 #include <unordered_set>
-#include <tbb/tbb_thread.h>
+#include <thread>
 #include "depspawn/depspawn_utils.h"
 #include "depspawn/depspawn.h"
 #ifdef DEPSPAWN_PROFILE
-#include "tbb/tick_count.h"
+#include <chrono>
 #endif
 
 
@@ -40,22 +40,22 @@ namespace {
 
   using namespace depspawn::internal;
   
-  tbb::atomic<Workitem*> worklist;
-  tbb::atomic<bool> eraser_assigned;
-  tbb::atomic<int> ObserversAtWork;
+  std::atomic<Workitem*> worklist;
+  std::atomic<bool> eraser_assigned;
+  std::atomic<int> ObserversAtWork;
   std::function<void(void)> FV = [](){};
   
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned int>
-                             profile_jobs = 0,
-                             profile_steals = 0,
-                             profile_steal_attempts = 0,
-                             profile_early_terminations = 0);
+  DEPSPAWN_PROFILEDEFINITION(std::atomic<unsigned int>
+                             profile_jobs(0),
+                             profile_steals(0),
+                             profile_steal_attempts(0),
+                             profile_early_terminations(0));
   
-  DEPSPAWN_PROFILEDEFINITION(tbb::atomic<unsigned long long int>
-                             profile_workitems_in_list = 0,
-                             profile_workitems_in_list_active = 0,
-                             profile_workitems_in_list_early_termination = 0,
-                             profile_workitems_in_list_active_early_termination = 0);
+  DEPSPAWN_PROFILEDEFINITION(std::atomic<unsigned long long int>
+                             profile_workitems_in_list(0),
+                             profile_workitems_in_list_active(0),
+                             profile_workitems_in_list_early_termination(0),
+                             profile_workitems_in_list_active_early_termination(0));
   
   DEPSPAWN_PROFILEDEFINITION(unsigned int profile_erases = 0);
   
@@ -97,7 +97,7 @@ namespace {
     if ( w->status == Workitem::Status_t::Ready ) {
       AbstractBoxedFunction * const stolen_abf = w->steal();
       if (stolen_abf != nullptr) {
-        ObserversAtWork.fetch_and_decrement();
+        ObserversAtWork.fetch_sub(1);
         success = true;
         stolen_abf->run_in_env(true);
         delete stolen_abf;
@@ -167,7 +167,7 @@ namespace depspawn {
     ///
     /// It is only accurate if the user has initialized the library with set_threads().
     ///Otherwise it just estimates that there is one SW thread per HW thread.
-    int Nthreads = tbb::tbb_thread::hardware_concurrency();
+    int Nthreads = std::thread::hardware_concurrency();
 
 #ifndef DEPSPAWN_POOL_CHUNK_SZ
     ///Number of elements to allocate at once in each new allocation requested by the pools
@@ -186,7 +186,7 @@ namespace depspawn {
 #ifdef DEPSPAWN_FAST_START
     // They are exportable for derived libraries (could be static for DepSpawn itself)
     static const int FAST_ARR_SZ  = 16;
-    int FAST_THRESHOLD = tbb::tbb_thread::hardware_concurrency() * 2;
+    int FAST_THRESHOLD = std::thread::hardware_concurrency() * 2;
 #endif
 
     int getNumThreads()
@@ -405,7 +405,7 @@ namespace depspawn {
       this->run();
 
       if (from_wait) {
-        ObserversAtWork.fetch_and_increment();
+        ObserversAtWork.fetch_add(1);
         while (eraser_assigned) {
           // Wait for current eraser, if any, to finish
         }
@@ -505,7 +505,7 @@ DEPSPAWN_DEBUGDEFINITION(
     assert(Scheduler != nullptr);
 
     if (nthreads == tbb::task_scheduler_init::automatic) {
-      nthreads = tbb::tbb_thread::hardware_concurrency(); //Reasonable estimation
+      nthreads = std::thread::hardware_concurrency(); //Reasonable estimation
     }
 
     Nthreads = nthreads;
@@ -530,7 +530,7 @@ DEPSPAWN_DEBUGDEFINITION(
     internal::Workitem *p;
     bool must_reiterate;
     
-    ObserversAtWork.fetch_and_increment(); //disable future attempts to erase Workitems during my activity
+    ObserversAtWork.fetch_add(1); //disable future attempts to erase Workitems during my activity
     while (eraser_assigned) {
       // Wait for current eraser, if any, to finish
     }
@@ -583,7 +583,7 @@ DEPSPAWN_DEBUGDEFINITION(
     
     //printf("%p exit\n", enum_thr_spec_father.local());
     
-    ObserversAtWork.fetch_and_decrement(); //I'm done
+    ObserversAtWork.fetch_sub(1); //I'm done
   }
   
 } //namespace depspawn

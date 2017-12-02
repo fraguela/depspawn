@@ -54,15 +54,15 @@ namespace depspawn {
       
       volatile Status_t::internal_Status_t status;  ///< State of this Workitem
       short int optFlags_;
-      tbb::atomic<char> deps_mutex_;    ///< Mutex for critical section for insertion in the list of dependencies
-      tbb::atomic<char> guard_;         ///< Critical for the correct control of steals
+      std::atomic_flag deps_mutex_;     ///< Mutex for critical section for insertion in the list of dependencies
+      std::atomic<char> guard_;         ///< Critical for the correct control of steals
       char nargs_;
       
       arg_info *args;                   ///< List of parameters, ordered by memory position
       Workitem* next;                   ///< next Workitem in the worklist
       Workitem* father;                 ///< Workitem that spawned this Workitem
-      tbb::atomic<int> ndependencies;   ///< Number of works on which the current task depends
-      tbb::atomic<int> nchildren;       ///< Number of children tasks + 1
+      std::atomic<int> ndependencies;   ///< Number of works on which the current task depends
+      std::atomic<int> nchildren;       ///< Number of children tasks + 1
       AbstractRunner* task;             ///< Task that encapsulates the work associated to this Workitem
 
       /// Depency on this Workitem

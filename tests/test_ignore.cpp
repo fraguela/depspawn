@@ -22,7 +22,7 @@
 
 #include <iostream>
 #include <ctime>
-#include <tbb/compat/thread>
+#include <thread>
 #include <tbb/tick_count.h>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
@@ -100,7 +100,7 @@ void ignored_dep2(Ignore<int> i) {
 int main()
 { int i = 0;//i is in the stack
   
-  if (tbb::tbb_thread::hardware_concurrency() < 3 ) {
+  if (std::thread::hardware_concurrency() < 3 ) {
     std::cout << "TEST SKIPPED (requires 3 HW threads)\n";
     return 0;
   }

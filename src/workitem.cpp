@@ -29,27 +29,24 @@ namespace depspawn {
   namespace internal {
     
     Workitem::Workitem(arg_info *iargs, int nargs) :
-    status(Status_t::Filling), optFlags_(0), nargs_(static_cast<char>(nargs)),
+    status(Status_t::Filling), optFlags_(0), deps_mutex_(ATOMIC_FLAG_INIT),
+    guard_(0), nargs_(static_cast<char>(nargs)),
     args(iargs), next(nullptr), father(enum_thr_spec_father.local()),
+    ndependencies(0), nchildren(1),
     task(nullptr), deps(nullptr), lastdep(nullptr)
     {
-      deps_mutex_ = 0;
-      guard_ = 0;
-      ndependencies = 0;
-      nchildren = 1;
-      
       if(father)
-        father->nchildren.fetch_and_increment();
+        father->nchildren.fetch_add(1);
     }
     
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
-      if( (status == Status_t::Ready) && (!guard_.fetch_and_increment()) ) {
+      if( (status == Status_t::Ready) && (!guard_.fetch_add(1)) ) {
         ret = task->steal(this);
         //Cancel task?
-        Workitem * const ctx_copy = task->ctx_.fetch_and_store(nullptr); //After this the task may have been deallocated
+        Workitem * const ctx_copy = task->ctx_.exchange(nullptr); //After this the task may have been deallocated
         if (ctx_copy == nullptr) { //if task began execution
-          guard_.fetch_and_increment(); // Notify we have copied and are ready to go
+          guard_.fetch_add(1); // Notify we have copied and are ready to go
           while (guard_ < 4) { } //Wait for task to notify its acknowledgement to ours
         }
         // guard_ = 3; //After this the task may have been deallocated
@@ -90,10 +87,10 @@ namespace depspawn {
       
       Workitem* ancestor = father;
       
+      p = worklist;
       do {
-        p = worklist;
         next = p;
-      } while(worklist.compare_and_swap(this, p) != p);
+      } while(!worklist.compare_exchange_weak(p, this));
 
       for(p = next; p != nullptr; p = p->next) {
 
@@ -131,7 +128,8 @@ namespace depspawn {
                 newdep->w = this;
                 
                 //tbb::mutex::scoped_lock lock(p->deps_mutex);
-                while (p->deps_mutex_.compare_and_swap(1, 0) != 0) { }
+                while (p->deps_mutex_.test_and_set(std::memory_order_acquire))  // acquire lock
+                  ; // spin
                 
                 if(!p->deps)
                   p->deps = p->lastdep = newdep;
@@ -139,8 +137,9 @@ namespace depspawn {
                   p->lastdep->next = newdep;
                   p->lastdep = p->lastdep->next;
                 }
+
                 //lock.release();
-                p->deps_mutex_ = 0;
+                p->deps_mutex_.clear(std::memory_order_release);               // release lock
                 
                 DEPSPAWN_DEBUGACTION(
                                      /* You can be linking to Done's that are waiting for you to Fill-in
@@ -243,7 +242,7 @@ namespace depspawn {
     void Workitem::finish_execution()
     { Workitem *p, *worklist_wait_hint;
 
-      if(nchildren.fetch_and_decrement() != 1)
+      if(nchildren.fetch_sub(1) != 1)
         return;
       
       bool erase = false;
@@ -255,9 +254,9 @@ namespace depspawn {
         current->status = Status_t::Done;
       
         /* Without this fence the change of status can be unseen by Workitems that are Filling in */
-        tbb::atomic_fence();
+        std::atomic_thread_fence(std::memory_order_seq_cst); // tbb::atomic_fence();
       
-        erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && !eraser_assigned.compare_and_swap(true, false));
+        erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && eraser_assigned.compare_exchange_weak(erase, true));
       
         worklist_wait_hint = worklist;
         //lastkeep = worklist_wait_hint;
@@ -287,7 +286,7 @@ namespace depspawn {
         Workitem::_dep *idep = current->deps;
         if (idep != nullptr) {
           do {
-            if(idep->w->ndependencies.fetch_and_decrement() == 1) {
+            if(idep->w->ndependencies.fetch_sub(1) == 1) {
               idep->w->post();
             }
             idep = idep->next;
@@ -307,7 +306,7 @@ namespace depspawn {
       
         current = p;
 
-      } while ((p != nullptr) && (p->nchildren.fetch_and_decrement() == 1));
+      } while ((p != nullptr) && (p->nchildren.fetch_sub(1) == 1));
       
       if(erase) {
         Clean_worklist(worklist_wait_hint);
@@ -319,7 +318,7 @@ namespace depspawn {
     { static std::vector<Workitem *> Dones;
       static std::vector< std::pair<Workitem *, Workitem *> > Deletable_Sublists;
 
-      DEPSPAWN_PROFILEDEFINITION(const tbb::tick_count t0 = tbb::tick_count::now());
+      DEPSPAWN_PROFILEDEFINITION(const auto t0 = std::chrono::high_resolution_clock::now());
       //DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
       DEPSPAWN_PROFILEACTION(profile_erases++);
       
@@ -393,7 +392,7 @@ namespace depspawn {
       }
       Deletable_Sublists.clear(); //Needed because it is static!
       
-      DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+      DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0).count());
       
       /*
        for(p = next; p; p = p->next) {
@@ -414,7 +413,7 @@ namespace depspawn {
            }
          }
        
-         DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += (tbb::tick_count::now() - t0).seconds());
+         DEPSPAWN_PROFILEACTION(profile_time_eraser_waiting += std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0).count());
        
          DEPSPAWN_DEBUGACTION(
            for(p = dp; p; p = p->next) {

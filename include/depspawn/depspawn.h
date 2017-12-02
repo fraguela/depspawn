@@ -36,7 +36,7 @@
 #include <boost/mpl/deref.hpp>
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
-#include <tbb/atomic.h>
+#include <atomic>
 #include <tbb/task_scheduler_init.h>
 
 #include "depspawn/fixed_defines.h"
@@ -410,7 +410,7 @@ namespace depspawn {
     /// Provides common function-independent elements for runner tasks
     struct AbstractRunner : public tbb::task {
 
-      tbb::atomic<Workitem *> ctx_; ///< Workitem associated to this runner task
+      std::atomic<Workitem *> ctx_; ///< Workitem associated to this runner task
       
       /// Constructor
       /// \param ctx  Workitem associated to this runner task
@@ -449,11 +449,11 @@ namespace depspawn {
       /// Task execution
       tbb::task* execute() 
       {
-        Workitem * const ctx_copy = ctx_.fetch_and_store(nullptr);
+        Workitem * const ctx_copy = ctx_.exchange(nullptr);
         
         if (ctx_copy != nullptr) {
           
-          if (!ctx_copy->guard_.fetch_and_increment()) {
+          if (!ctx_copy->guard_.fetch_add(1)) {
             
             ctx_copy->status = Workitem::Status_t::Running;
             

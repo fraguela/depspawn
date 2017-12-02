@@ -22,7 +22,7 @@
 
 #include <ctime>
 #include <iostream>
-#include <tbb/compat/thread>
+#include <thread>
 #include <tbb/tick_count.h>
 #include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
@@ -71,7 +71,7 @@ void h(int &i, int s) {
 int main()
 {
   
-  if (tbb::tbb_thread::hardware_concurrency() < 2 ) {
+  if (std::thread::hardware_concurrency() < 2 ) {
     std::cout << "TEST SKIPPED (requires 2 HW threads)\n";
     return 0;
   }
