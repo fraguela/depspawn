@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['observer',['Observer',['../classdepspawn_1_1_observer.html#a2371aeb6211c8fc7824eae91015f71b2',1,'depspawn::Observer']]],
-  ['operator_20t_20_26',['operator T &amp;',['../classdepspawn_1_1_ignore.html#ac839e514241627cd8e3013e9ea83e9f7',1,'depspawn::Ignore']]],
-  ['operator_3d',['operator=',['../classdepspawn_1_1_ignore.html#aec576935902f81df3725b8f220c4440a',1,'depspawn::Ignore']]]
+  ['ignore',['Ignore',['../classdepspawn_1_1_ignore.html#a927a0b8fd3e4c9d70721b2fa00a394ed',1,'depspawn::Ignore::Ignore()'],['../namespacedepspawn.html#a7eb50aaa5c50b092a1afead977471347',1,'depspawn::ignore()']]]
 ];

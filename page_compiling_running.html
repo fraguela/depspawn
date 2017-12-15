@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.12"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>DepSpawn: Integration with Blitz++</title>
+<title>DepSpawn: Compiling and running</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -71,7 +71,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('page_blitz.html','');});
+$(document).ready(function(){initNavTree('page_compiling_running.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -90,16 +90,23 @@ $(document).ready(function(){initNavTree('page_blitz.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">Integration with Blitz++ </div>  </div>
+<div class="title">Compiling and running </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>In <a class="el" href="page_basics.html#sec_semantics">Semantics</a> we saw that DepSpawn tracks the memory occupied by the objects passed as arguments to the tasks in order to detect dependencies. While this suffices in many situations, sometimes it may be desirable to express dependencies on regions that are not consecutive, such as tiles of a matrix. For this reason DepSpawn provides support for <a href="http://www.sourceforge.net/projects/blitz">Blitz++</a> arrays, which are well known for their efficiency, flexibility and intutive notation.</p>
-<p>Unfortunately, using the standard distribution of Blitz++ would imply a noticeable overhead for DepSpawn to compute the dependencies between different arrays because of the lack of some useful information in the objects. For this reason, a slightly modified version of Blitz++, in which the arrays keep this information, is provided with DepSpawn. The installation of this library is totally optional.</p>
-<p>Three things must be taken into account in order to use this feature:</p><ul>
-<li>Since it is optional, and the user may have even not installed Blitz++, DepSpawn only triggers (and compiles) the support code for Blitz++ if it detects that it is being in use, which <b>requires including the Blitz++ headers before <a class="el" href="depspawn_8h_source.html" title="Main header file, and only one that needs to be included in the client code. ">depspawn.h</a></b> in the application.</li>
-<li>Blitz++ is not compiled by default in thread-safe mode. For this reason in order to correctly compile a DepSpawn + Blitz++ application, it is necessary to define the macros <pre class="fragment">   -DBZ_THREADSAFE -DBZ_THREADSAFE_USE_TBB 
-</pre></li>
-<li>DepSpawn tracks separately dependencies between memory regions and Blitz++ arrays. For this reason any access to a Blitz++ array memory position that must be tracked shoyld be made only by means of Blitz++ arrays. </li>
+<div class="textblock"><p>Once we have installed DepSpawn, we are ready to test it in an application. For this purpose we will use the simple example code found in <code>examples/test_subobject.cpp</code>. In order to compile a DepSpawn application, we need to:</p><ol type="1">
+<li>Make sure the TBB environment is correctly set up, which is achieved following the steps described in <a class="el" href="page_tbb_config.html">TBB configuration</a></li>
+<li>Since DepSpawn relies on C++11, if our compiler requires some flag to support it (typically <code>-std=c++0x</code> or <code>-std=c++11</code>), we must apply it</li>
+<li>Tell the compiler where to find the DepSpawn headers using the <code>-I</code> flag</li>
+<li>Tell the compiler where to find the DepSpawn library using the <code>-L</code> flag</li>
+<li>Link with DepSpawn (<code>-ldepspawn</code>) and the TBB (<code>-ltbb</code>)</li>
+<li>If the <code>DEPSPAWN_SCALABLE_POOL</code> was set to <code>ON</code> when the library was compiled (see <a class="el" href="page_installation.html">Installing DepSpawn</a>), link also with <code>-ltbbmalloc</code></li>
+</ol>
+<p>So if for example DepSpawn has been installed in <code>/usr/local</code> and our compiler does not automatically use <code>/usr/local/include</code> and <code>/usr/local/lib</code> to find header files and libraries, respectively, then <code>test_subobject.cpp</code> would be compiled using <code>g++</code> with the command </p><pre class="fragment"> g++ -std=c++11 -I/usr/local/include -o test_subobject test_subobject.cpp -L/usr/local/lib -ldepspawn -ltbb
+</pre><p>The execution of our application only requires that the TBB environment is correctly set up, as some TBB components are dynamically linked, and the TBB configuration allows to find them.</p>
+<p>The DepSpawn runtime recognizes the following environment variables:</p><ul>
+<li><code>DEPSPAWN_NUM_THREADS</code> defines the number of threads to use in the execution.</li>
+<li><code>DEPSPAWN_TASK_QUEUE_LIMIT</code> defines the task queue limit as indicated by <a class="el" href="namespacedepspawn.html#a8906adda62ba1a66d511aced3960ea4e">set_task_queue_limit()</a>, described in <a class="el" href="page_basics.html#sec_api">Interface</a>.</li>
+<li><code>DEPSPAWN_ENQUEUE_TASKS</code>, when defined, commands DepSpawn to launch tasks to execution using <code>tbb::task::enqueue()</code> instead of <code>tbb::task::spawn()</code>. Please read the TBB manual on the differences between these task spawning methods. </li>
 </ul>
 </div></div><!-- contents -->
 </div><!-- doc-content -->

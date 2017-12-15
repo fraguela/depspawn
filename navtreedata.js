@@ -7,7 +7,7 @@ var NAVTREE =
       [ "Procedure", "page_installation.html#sec_insprocedure", null ]
     ] ],
     [ "TBB configuration", "page_tbb_config.html", null ],
-    [ "Compiling and running", "page_compiling.html", null ],
+    [ "Compiling and running", "page_compiling_running.html", null ],
     [ "How to write a DepSpawn application", "page_basics.html", [
       [ "Semantics", "page_basics.html#sec_semantics", [
         [ "Write your parallel tasks as functions", "page_basics.html#sec_functions", null ],
@@ -33,8 +33,8 @@ var NAVTREE =
         [ "Functions", "namespacemembers_func.html", null ]
       ] ]
     ] ],
-    [ "Classes", null, [
-      [ "Class List", "annotated.html", "annotated" ],
+    [ "Classes", "annotated.html", [
+      [ "Class List", "annotated.html", "annotated_dup" ],
       [ "Class Index", "classes.html", null ],
       [ "Class Members", "functions.html", [
         [ "All", "functions.html", null ],

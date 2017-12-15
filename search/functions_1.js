@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['ignore',['Ignore',['../classdepspawn_1_1_ignore.html#a927a0b8fd3e4c9d70721b2fa00a394ed',1,'depspawn::Ignore::Ignore()'],['../namespacedepspawn.html#a7eb50aaa5c50b092a1afead977471347',1,'depspawn::ignore()']]]
+  ['get_5fnum_5fthreads',['get_num_threads',['../namespacedepspawn.html#a465cc128e6abba52d4b99762c4a34cc7',1,'depspawn']]],
+  ['get_5ftask_5fqueue_5flimit',['get_task_queue_limit',['../namespacedepspawn.html#ae5d18154f4ad87e6819dd59f3df0b40f',1,'depspawn']]]
 ];
