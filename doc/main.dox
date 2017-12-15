@@ -158,7 +158,7 @@ TBBs require to set up some environment variables both to be compiled and to be 
 
 
 /**
-\page page_compiling Compiling and running
+\page page_compiling_running Compiling and running
 
  Once we have installed DepSpawn, we are ready to test it in an application. For this purpose we will use the simple example code found in `examples/test_subobject.cpp`. In order to compile a DepSpawn application, we need to:
  -# Make sure the TBB environment is correctly set up, which is achieved following the steps described in \ref page_tbb_config
@@ -170,9 +170,14 @@ TBBs require to set up some environment variables both to be compiled and to be 
  
  So if for example DepSpawn has been installed in `/usr/local` and our compiler does not automatically use `/usr/local/include` and `/usr/local/lib` to find header files and libraries, respectively, then `test_subobject.cpp` would be compiled using `g++` with the command
  
-      g++ -std=c++0x -I/usr/local/include -o test_subobject test_subobject.cpp -L/usr/local/lib -ldepspawn -ltbb
+      g++ -std=c++11 -I/usr/local/include -o test_subobject test_subobject.cpp -L/usr/local/lib -ldepspawn -ltbb
 	
- The execution of our application only requires that the TBB environment is correctly set up, as some TBB components are dynamically linked, and the TBB configuration allows to find them.
+ The execution of our application only requires that the TBB environment is correctly set up, as some TBB components are dynamically linked, and the TBB configuration allows to find them. 
+	
+ The DepSpawn runtime recognizes the following environment variables:
+- `DEPSPAWN_NUM_THREADS` defines the number of threads to use in the execution.
+- `DEPSPAWN_TASK_QUEUE_LIMIT` defines the task queue limit as indicated by set_task_queue_limit(), described in \ref sec_api.
+- `DEPSPAWN_ENQUEUE_TASKS`, when defined, commands DepSpawn to launch tasks to execution using `tbb::task::enqueue()` instead of `tbb::task::spawn()`. Please read the TBB manual on the differences between these task spawning methods.
 **/
 
 
@@ -246,7 +251,9 @@ When an application does not have subtasks, that is, when all the tasks are spaw
 - `wait_for_subtasks()` waits for all the subtasks spawned within the current task.
 - `wait_for()` waits for the specific set of objects provided as arguments to be ready for reading.
 - `set_threads()` is the preferred way to initialize the library, as it allows to specify both the number of threads to use and the stack size of each thread.
+- `get_num_threads()` retrieves the number of threads in use
 - `set_task_queue_limit()` can help optimize the performance if DepSpawn has been compiled setting the configuration variable `DEPSPAWN_FAST_START` on (see \ref page_installation). When this variable is active, whenever a thread spawns a new task, it checks how many ready tasks (i.e., already free of dependencies) are waiting to be executed. If this value is greater than a given threshold, the thread tries to execute one of these pending tasks before returning to its current task. By default the library sets this threshold to twice the number of threads in use specified using `set_threads()`. The user however is free to modify this threshold using `set_task_queue_limit()`.
+- `get_task_queue_limit()` reports the task queue limit, as described above, or -1 if the library was compiled with `DEPSPAWN_FAST_START` off.
 - The `Observer` class provides objects which upon destruction wait for all the tasks spawned by their thread since their creation to finish. As a result, for example, the code \code
 	  { depspawn::Observer o;
 	    spawn(f, a, b);

@@ -28,6 +28,7 @@
 #include <cassert>
 #include <unordered_set>
 #include <thread>
+#include <stdexcept>
 #include "depspawn/depspawn_utils.h"
 #include "depspawn/depspawn.h"
 #ifdef DEPSPAWN_PROFILE
@@ -63,26 +64,26 @@ namespace {
 
   /// Returns true if the intervals [s1, e1] and [s2, e2] overlap
   template<typename T>
-  constexpr bool overlaps_intervals(const T s1, const T e1, const T s2, const T e2)
+  constexpr bool overlaps_intervals(const T s1, const T e1, const T s2, const T e2) noexcept
   {
     return (s1 <= s2) ? (s2 <= e1) : (s1 <= e2);
   }
   
-  constexpr bool overlaps(const arg_info* const a, const arg_info* const b)
+  constexpr bool overlaps(const arg_info* const a, const arg_info* const b) noexcept
   {
     return overlaps_intervals(a->addr, a->addr + a->size - 1,
-                           b->addr, b->addr + b->size - 1);
+                              b->addr, b->addr + b->size - 1);
   }
   
   /// Returns true if the interval [s1, e1] contains the interval [s2, e2]
   template<typename T>
-  constexpr bool contains_intervals(const T s1, const T e1, const T s2, const T e2)
+  constexpr bool contains_intervals(const T s1, const T e1, const T s2, const T e2) noexcept
   {
     return (s1 <= s2) && (e2 <= e1);
   }
   
   /// Means a contains b
-  constexpr bool contains(const arg_info* const a, const arg_info* const b)
+  constexpr bool contains(const arg_info* const a, const arg_info* const b) noexcept
   { //the -1 for the end would be correct, but unnecessary in this test
     return contains_intervals(a->addr, a->addr + a->size, b->addr, b->addr + b->size);
   }
@@ -160,15 +161,18 @@ namespace depspawn {
   
   namespace internal {
 
-    tbb::task* volatile master_task = 0;
+    tbb::task* volatile master_task = nullptr;
     tbb::enumerable_thread_specific<Workitem *> enum_thr_spec_father;
 
     /// \brief Number of threads in use
     ///
-    /// It is only accurate if the user has initialized the library with set_threads().
+    /// It is only accurate if the user has initialized the library with set_threads()
+    ///or the environment variable \c DEPSPAWN_NUM_THREADS.
     ///Otherwise it just estimates that there is one SW thread per HW thread.
-    int Nthreads = std::thread::hardware_concurrency();
+    int Nthreads;
 
+    bool EnqueueTasks;
+  
 #ifndef DEPSPAWN_POOL_CHUNK_SZ
     ///Number of elements to allocate at once in each new allocation requested by the pools
 #define DEPSPAWN_POOL_CHUNK_SZ 32
@@ -185,14 +189,41 @@ namespace depspawn {
     
 #ifdef DEPSPAWN_FAST_START
     // They are exportable for derived libraries (could be static for DepSpawn itself)
-    static const int FAST_ARR_SZ  = 16;
-    int FAST_THRESHOLD = std::thread::hardware_concurrency() * 2;
+    static constexpr int FAST_ARR_SZ  = 16;
+    int FAST_THRESHOLD;
 #endif
 
-    int getNumThreads()
+    /// The construction of an object of this class initializes DepSpawn
+    ///from the environment variables or default values
+    struct EnvInitClass {
+      EnvInitClass();
+    };
+    
+    EnvInitClass::EnvInitClass()
     {
-      return Nthreads;
+      const char *env_var = getenv("DEPSPAWN_NUM_THREADS");
+      Nthreads = (env_var == nullptr) ? std::thread::hardware_concurrency() : atoi(env_var);
+      if (Nthreads <= 0) {
+        throw std::invalid_argument("Invalid DEPSPAWN_NUM_THREADS");
+      }
+
+      // since set_threads sets a default set_task_queue_limit
+      //we call it here in case DEPSPAWN_TASK_QUEUE_LIMIT modifies it also
+      set_threads(Nthreads);
+      
+      env_var = getenv("DEPSPAWN_ENQUEUE_TASKS");
+      EnqueueTasks = (env_var != nullptr);
+
+#ifdef DEPSPAWN_FAST_START
+      env_var = getenv("DEPSPAWN_TASK_QUEUE_LIMIT");
+      FAST_THRESHOLD = (env_var == nullptr) ? (Nthreads * 2) : atoi(env_var);
+      if (FAST_THRESHOLD < 0) {
+        throw std::invalid_argument("Invalid DEPSPAWN_TASK_QUEUE_LIMIT");
+      }
+#endif
     }
+    
+    EnvInitClass StaticEnvInitClassObject;
     
     void start_master()
     {
@@ -351,9 +382,9 @@ namespace depspawn {
             return true;
           }
 
-        
+ 
         other = other->next;
-        
+
       } while(other && (addr == other->addr));
       
       return false;
@@ -482,19 +513,27 @@ DEPSPAWN_DEBUGDEFINITION(
     }
   }
   
-  void set_task_queue_limit(int limit)
+  void set_task_queue_limit(int limit) noexcept
   {
 #ifdef DEPSPAWN_FAST_START
     internal::FAST_THRESHOLD = limit;
 #endif
   }
   
+  int get_task_queue_limit() noexcept
+  {
+#ifdef DEPSPAWN_FAST_START
+    return internal::FAST_THRESHOLD;
+#else
+    return -1;
+#endif
+  }
+
   void set_threads(int nthreads, tbb::stack_size_type thread_stack_size)
   { static tbb::task_scheduler_init * Scheduler = nullptr;
     
     if (nthreads == tbb::task_scheduler_init::deferred) {
-      printf("set_threads(tbb::task_scheduler_init::deferred) unsupported\n");
-      exit(EXIT_FAILURE);
+      throw std::invalid_argument("set_threads(tbb::task_scheduler_init::deferred) unsupported");
     }
     
     if (Scheduler != nullptr) {
@@ -511,6 +550,11 @@ DEPSPAWN_DEBUGDEFINITION(
     Nthreads = nthreads;
     
     set_task_queue_limit(2 * nthreads); //Heuristic
+  }
+
+  int get_num_threads() noexcept
+  {
+    return Nthreads;
   }
 
   Observer::Observer(bool priority) :

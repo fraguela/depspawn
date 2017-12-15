@@ -31,12 +31,13 @@ struct t_struct {
 
 t_struct s;
 
-void f(int &i) {
+void f(int &i)
+{
   i++;
 }
 
-void g(t_struct& s) {  
-  
+void g(t_struct& s)
+{
   s.a++;
 }
 
@@ -45,7 +46,7 @@ int main()
   s.a = 0;
   s.b = 0;
   
-  set_threads();
+  std::cout << "Using " << get_num_threads() << " threads and a task queue limit of " << get_task_queue_limit() << '\n';
   
   spawn(f, s.a); //Sets s.a to 1
   

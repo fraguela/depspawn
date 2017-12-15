@@ -214,8 +214,7 @@ namespace depspawn {
       // the fast_arr workitems should not have been deallocated
       //status = (!ndependencies) ? Ready : Waiting;
       if (!ndependencies) {
-        status = Status_t::Ready;
-        master_task->spawn(*task);
+        post();
       } else {
         status = Status_t::Waiting;
       }

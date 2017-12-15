@@ -548,9 +548,11 @@ int process_arguments(int argc, char **argv)
     return -1;
   }
   
-  if(!tests_specified)
-    for(c = 0; c < NTESTS; c++)
+  if(!tests_specified) {
+    for(c = 0; c < NTESTS; c++) {
       dotest[c] = true;
+    }
+  }
   
   printf("Running problem size %u with %i threads (sizeof(int)=%zu)\n", nsize, nthreads, sizeof(int));
   
@@ -559,9 +561,10 @@ int process_arguments(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  if(process_arguments(argc, argv) == -1)
+  if(process_arguments(argc, argv) == -1) {
     return -1;
-  
+  }
+
   set_threads(nthreads);
 
   if (queue_limit >= 0) {
@@ -572,8 +575,9 @@ int main(int argc, char **argv)
   cleanmx();
   
   for(global_ntest = 0; global_ntest < NTESTS; global_ntest++) {
-    if(dotest[global_ntest])
+    if(dotest[global_ntest]) {
       (*tests[global_ntest])();
+    }
   }
   
   printf("Total : %8lf\n", total_time);

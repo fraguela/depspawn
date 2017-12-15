@@ -22,8 +22,8 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
-#ifndef __WORKITEM_H
-#define __WORKITEM_H
+#ifndef __DEPSPAWN_WORKITEM_H
+#define __DEPSPAWN_WORKITEM_H
 
 namespace depspawn {
   
@@ -99,7 +99,11 @@ namespace depspawn {
       /// calls this function, after an atomic decenment zeroes ndependencies
       void post() {
         status = Status_t::Ready;
-        master_task->spawn((tbb::task&)*task);
+        if (EnqueueTasks) {
+          tbb::task::enqueue((tbb::task&)*task);
+        } else {
+          master_task->spawn((tbb::task&)*task);
+        }
       }
       
       /// Steal the work of this ready Workitem or return nullptr if unsuccessful

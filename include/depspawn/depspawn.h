@@ -335,6 +335,9 @@ namespace depspawn {
     /// Root task, from which all the spawned ones descend
     extern tbb::task* volatile master_task;
     
+    /// Whether tasks are normally spawned (false) or enqueued (true)
+    extern bool EnqueueTasks;
+
     struct AbstractBoxedFunction;
     struct AbstractRunner;
     
@@ -355,9 +358,6 @@ namespace depspawn {
 
     /// Initializes the DepSpawn-specific global variables for a parallel session
     extern void start_master();
-    
-    /// Retrieve number of threads currently in use
-    extern int getNumThreads();
     
     /// Common steps for wait_for operations
     extern void common_wait_for(arg_info *pargs, int nargs);
@@ -535,7 +535,35 @@ namespace depspawn {
 typedef void spawn_ret_t;
 
   } //namespace internal
-  
+
+/// Define the maximum number of ready tasks allowed to be waiting to be executed
+/// before the enqueueing thread tries to execute one of them.
+///
+/// This value only makes sense if the library has been compiled with DEPSPAWN_FAST_START on.
+/// By default the library sets this value to twice the number of threads in use.
+extern void set_task_queue_limit(int limit) noexcept;
+
+/// Retrieve the value set by set_task_queue_limit() or the environment variable DEPSPAWN_TASK_QUEUE_LIMIT
+///or -1 if DepSpawn was not compiled with DEPSPAWN_FAST_START on.
+extern int get_task_queue_limit() noexcept;
+
+/// Specify the number of threads and stack size per thread to use.
+///
+/// If the library has been compiled with DEPSPAWN_FAST_START, it also invokes
+/// set_task_queue_limit() asking for two ready tasks per thread, which is the default.
+///
+/// \param nthreads Number of threads to use.
+///                 The value tbb::task_scheduler_init::automatic creates one
+///                 thread per hardware thread available, which is the default
+///                 behavior when the argument is not specified.
+/// \param thread_stack_size Stack size for each thread.
+///                 A value 0 specifies the use of the default stack size.
+extern void set_threads(int nthreads = tbb::task_scheduler_init::automatic,
+                        tbb::stack_size_type thread_stack_size = 0);
+
+/// Retrieve number of threads currently in use
+extern int get_num_threads() noexcept;
+
 #ifdef SEQUENTIAL_DEPSPAWN
 
 #define spawn(f, ...) f(__VA_ARGS__)
@@ -709,7 +737,7 @@ typedef void spawn_ret_t;
   /// \param bs optional step
   template<typename F>
   void for_range(const blitz::Range& r, const F& f, int bs = -1) {
-    const int num_threads = internal::getNumThreads();
+    const int num_threads = get_num_threads();
     
     if(bs == -1) bs = (r.length() + num_threads - 1) / (num_threads);
     int lbs;
@@ -728,7 +756,7 @@ typedef void spawn_ret_t;
   /// \param bs2 optional step for the second dimension
   template<typename F>
   void for_range(const blitz::Range& r1, const blitz::Range& r2, const F& f, int bs1 = -1, int bs2 = -1) {
-    const int num_threads = internal::getNumThreads();
+    const int num_threads = get_num_threads();
 
     if(bs1 == -1) {
       bs1 = (r1.length()  + num_threads - 1) / (num_threads);
@@ -748,27 +776,6 @@ typedef void spawn_ret_t;
   }
 
 #endif // DEPSPAWN_BLITZ
-
-/// Define the maximum number of ready tasks allowed to be waiting to be executed
-/// before the enqueueing thread tries to execute one of them.
-///
-/// This value only makes sense if the library has been compiled with DEPSPAWN_FAST_START on.
-/// By default the library sets this value to twice the number of threads in use.
-extern void set_task_queue_limit(int limit);
-
-/// Specify the number of threads and stack size per thread to use.
-///
-/// If the library has been compiled with DEPSPAWN_FAST_START, it also invokes
-/// set_task_queue_limit() asking for two ready tasks per thread, which is the default.
-///
-/// \param nthreads Number of threads to use.
-///                 The value tbb::task_scheduler_init::automatic creates one
-///                 thread per hardware thread available, which is the default
-///                 behavior when the argument is not specified.
-/// \param thread_stack_size Stack size for each thread.
-///                 A value 0 specifies the use of the default stack size.
-extern void set_threads(int nthreads = tbb::task_scheduler_init::automatic,
-                        tbb::stack_size_type thread_stack_size = 0);
 
 } //namespace depspawn
 
