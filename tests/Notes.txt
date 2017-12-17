@@ -74,3 +74,6 @@ BENCHMARKS:
 
 - bench_spawn.cpp
   Time to spawn functions
+  
+- bench_sched_perf.cpp
+  Benchmarks overhead of spawning matrix tile products of different sizes

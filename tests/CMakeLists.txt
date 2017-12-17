@@ -40,7 +40,7 @@ set( NOBLITZTESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_std
 
 set( BLITZTESTBINARIES mxm mxv test_blitz_array testreduction1_fix1 )
 
-set( NOTESTBINARIES testreduction1_orix mxv_basic_orix test_ignore test_array_sizes bench_spawn fib )
+set( NOTESTBINARIES testreduction1_orix mxv_basic_orix test_ignore test_array_sizes bench_spawn bench_sched_perf fib )
 
 
 foreach(b ${NOBLITZTESTBINARIES} ${BLITZTESTBINARIES} ${NOTESTBINARIES} )
