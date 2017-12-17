@@ -35,7 +35,6 @@
 #include <boost/mpl/next.hpp>
 #include <boost/mpl/deref.hpp>
 #include <tbb/task.h>
-#include <tbb/enumerable_thread_specific.h>
 #include <atomic>
 #include <tbb/task_scheduler_init.h>
 
@@ -62,6 +61,14 @@
 #ifndef DEPSPAWN_BLITZ
 #error Only the Blitz++ version released with DepSpawn can be used with DepSpawn
 #endif
+#endif
+
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+#define DEPSPAWN_THREADLOCAL __thread
+#elif defined(_MSC_VER)
+#define DEPSPAWN_THREADLOCAL __declspec(thread)
+#else
+#define DEPSPAWN_THREADLOCAL thread_local
 #endif
 
 /// \namespace depspawn
@@ -348,13 +355,12 @@ namespace depspawn {
 
 #include "depspawn/workitem.h"
 
-
 namespace depspawn {
   
   namespace internal {
   
     /// Pointer to the father of the task currently being executed, or nullptr if it is the root
-    extern tbb::enumerable_thread_specific<Workitem *> enum_thr_spec_father;
+    extern DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father;
 
     /// Initializes the DepSpawn-specific global variables for a parallel session
     extern void start_master();
@@ -457,7 +463,7 @@ namespace depspawn {
             
             ctx_copy->status = Workitem::Status_t::Running;
             
-            Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+            Workitem *& ref_father_lcl = enum_thr_spec_father;
             ref_father_lcl = ctx_copy;
             
             f_();

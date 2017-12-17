@@ -31,7 +31,7 @@ namespace depspawn {
     Workitem::Workitem(arg_info *iargs, int nargs) :
     status(Status_t::Filling), optFlags_(0), deps_mutex_(ATOMIC_FLAG_INIT),
     guard_(0), nargs_(static_cast<char>(nargs)),
-    args(iargs), next(nullptr), father(enum_thr_spec_father.local()),
+    args(iargs), next(nullptr), father(enum_thr_spec_father),
     ndependencies(0), nchildren(1),
     task(nullptr), deps(nullptr), lastdep(nullptr)
     {

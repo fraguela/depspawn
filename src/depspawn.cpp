@@ -161,8 +161,8 @@ namespace depspawn {
   
   namespace internal {
 
-    tbb::task* volatile master_task = nullptr;
-    tbb::enumerable_thread_specific<Workitem *> enum_thr_spec_father;
+    tbb::task* volatile master_task {nullptr};
+    DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father {nullptr};
 
     /// \brief Number of threads in use
     ///
@@ -232,7 +232,7 @@ namespace depspawn {
       ObserversAtWork = 0;
       master_task = new (tbb::task::allocate_root()) tbb::empty_task;
       master_task->set_ref_count(1);
-      enum_thr_spec_father.local() = nullptr;
+      enum_thr_spec_father = nullptr;
     }
     
     void common_wait_for(arg_info *pargs, int nargs)
@@ -426,7 +426,7 @@ namespace depspawn {
     
     void AbstractBoxedFunction::run_in_env(bool from_wait) {
       
-      Workitem *& ref_father_lcl = enum_thr_spec_father.local();
+      Workitem *& ref_father_lcl = enum_thr_spec_father;
       Workitem *  cur_father_lcl = ref_father_lcl;
       
       ctx_->status = Workitem::Status_t::Running;
@@ -502,7 +502,7 @@ DEPSPAWN_DEBUGDEFINITION(
   
   void wait_for_subtasks(bool priority)
   {
-    internal::Workitem * cur_father = enum_thr_spec_father.local();
+    internal::Workitem * cur_father = enum_thr_spec_father;
     
     //printf(" WFS %s\n", cur_father == nullptr ? "0" : "nested");
     
@@ -559,7 +559,7 @@ DEPSPAWN_DEBUGDEFINITION(
 
   Observer::Observer(bool priority) :
   limit_(worklist),
-  cur_father_(enum_thr_spec_father.local()),
+  cur_father_(enum_thr_spec_father),
   priority_(priority)
   { }
   
@@ -594,7 +594,7 @@ DEPSPAWN_DEBUGDEFINITION(
      */
     
     internal::Workitem * const safe_end = (cur_father_ != nullptr) ? limit_ : nullptr;
-    //printf("%p w until %p!=NULL->%p\n", enum_thr_spec_father.local(), cur_father_, limit_);
+    //printf("%p w until %p!=NULL->%p\n", enum_thr_spec_father, cur_father_, limit_);
 
     //The first round always has priority, i.e., is only devoted to the critical path
     bool priority = true;
@@ -625,7 +625,7 @@ DEPSPAWN_DEBUGDEFINITION(
       
     } while (must_reiterate);
     
-    //printf("%p exit\n", enum_thr_spec_father.local());
+    //printf("%p exit\n", enum_thr_spec_father);
     
     ObserversAtWork.fetch_sub(1); //I'm done
   }
