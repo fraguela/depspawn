@@ -54,7 +54,6 @@ bool OnlyParallelRun = false; // This is for profiling
 int Queue_limit = -1;
 int Verbosity = 0;
 Tile Input1, Input2, Destination[MAX_NTASKS];
-std::chrono::high_resolution_clock::time_point t0, t1, t0_in;
 std::vector<double> TSeq, TPar;
 
 void clearDestination()
@@ -79,55 +78,51 @@ void seq_mult(Tile& dest, const Tile& input1, const Tile& input2)
   }
 }
 
-
 double bench_serial_time(const size_t ntasks, int nreps)
-{
-  if (ClearCaches) {
-    clearDestination();
-  }
-
-  t0 = std::chrono::high_resolution_clock::now();
+{ double ret_time = 0.;
+  
+  //upcxx::barrier();
   
   for (int nr = 0; nr < nreps; nr++) {
-    if (Verbosity > 1) {
-      t0_in =  std::chrono::high_resolution_clock::now();
+    
+    if (ClearCaches) {
+      clearDestination();
     }
+    
+    std::chrono::high_resolution_clock::time_point t0 = std::chrono::high_resolution_clock::now();
+    
     for (size_t i = 0; i < ntasks; i++) {
       seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2);
     }
-    if (Verbosity > 1) {
-      TSeq[nr] =  std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0_in).count();
-    }
+    
+    TSeq[nr] =  std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0).count();
+    ret_time += TSeq[nr];
   }
   
-  t1 = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration <double>(t1 - t0).count();
+  return ret_time;
 }
 
 double bench_parallel_time(const size_t ntasks, int nreps)
-{
+{ double ret_time = 0.;
   
-  if (ClearCaches) {
-    clearDestination();
-  }
-
-  t0 = std::chrono::high_resolution_clock::now();
-
   for (int nr = 0; nr < nreps; nr++) {
-    if (Verbosity > 1) {
-      t0_in =  std::chrono::high_resolution_clock::now();
+    
+    if (ClearCaches) {
+      clearDestination();
     }
+    
+    std::chrono::high_resolution_clock::time_point t0 = std::chrono::high_resolution_clock::now();
+    
     for (size_t i = 0; i < ntasks; i++) {
       spawn(seq_mult, Destination[UseSameTile ? 0 : i], Input1, Input2);
     }
     wait_for_all();
-    if (Verbosity > 1) {
-      TPar[nr] =  std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0_in).count();
-    }
+    
+    TPar[nr] =  std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0).count();
+    ret_time += TPar[nr];
   }
-
-  t1 = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration <double>(t1 - t0).count();
+  
+  return ret_time;
 }
 
 double bench_sched_perf(const size_t ntasks)
