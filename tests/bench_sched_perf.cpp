@@ -28,6 +28,7 @@
 #include <vector>
 #include <unistd.h>
 #include "depspawn/depspawn.h"
+#include <tbb/task_group.h>
 #include <tbb/parallel_for.h>
 
 using namespace depspawn;
@@ -51,6 +52,7 @@ size_t cur_tile_sz;
 bool UseSameTile = false;
 bool ClearCaches = false;
 bool OnlyParallelRun = false; // This is for profiling
+bool ParallelBaseline = false;
 int Queue_limit = -1;
 int Verbosity = 0;
 Tile Input1, Input2, Destination[MAX_NTASKS];
@@ -67,7 +69,7 @@ void clearDestination()
 //the extra memory cost of the remote access in NUMA machines. But the compiler
 //detected that the output was not written and skipped the computations.
 // input1 and input2 should be fine because they are a single read-only tile.
-void seq_mult(Tile& dest, const Tile& input1, const Tile& input2)
+void seq_mult(Tile& __restrict__ dest, const Tile& __restrict__ input1, const Tile& __restrict__ input2)
 {
   for (size_t i = 0; i < cur_tile_sz; i++) {
     for (size_t j = 0; j < cur_tile_sz; j++) {
@@ -91,8 +93,20 @@ double bench_serial_time(const size_t ntasks, int nreps)
     
     std::chrono::high_resolution_clock::time_point t0 = std::chrono::high_resolution_clock::now();
     
-    for (size_t i = 0; i < ntasks; i++) {
-      seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2);
+    if (ParallelBaseline) {
+      tbb::task_group g;
+      for (size_t i = 0; i < ntasks; i++) {
+        g.run([&, i] { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); });
+      }
+      tbb::task_group_status tmp = g.wait();
+      if (tmp != tbb::complete) {
+        std::cerr << "incomplete parallel task_group" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      for (size_t i = 0; i < ntasks; i++) {
+        seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2);
+      }
     }
     
     TSeq[nr] =  std::chrono::duration <double>(std::chrono::high_resolution_clock::now() - t0).count();
@@ -157,17 +171,25 @@ double bench_sched_perf(const size_t ntasks)
     std::cout << "parallel time=" << parallel_time << std::endl;
   }
   
-  return OnlyParallelRun ? 1.0 : (parallel_time / (serial_time / (UseSameTile ? 1 : Nthreads)));
+  if (OnlyParallelRun) {
+    return 1.0;
+  } else {
+    // if UseSameTile the runtime cannot scale linearly, and if ParallelBaseline we just want a one-to-one comparison
+    //So only in sequential baselines with different tiles do we compare with the theoretical Time/Nthreads scaling
+    const double baseline_time = (UseSameTile || ParallelBaseline) ? serial_time : (serial_time / Nthreads);
+    return parallel_time / baseline_time;
+  }
 }
 
 void show_help()
 {
-  puts("bench_sched_perf [-c] [-h] [-n reps] [-p] [-q limit] [-s] [-t nthreads] [-T maxtilesize] [-v level]");
+  puts("bench_sched_perf [-c] [-h] [-n reps] [-p] [-P] [-q limit] [-s] [-t nthreads] [-T maxtilesize] [-v level]");
   puts("-c          clear caches before test");
   puts("-h          Display help and exit");
   puts("-N ntasks   Maximum number of tasks");
   puts("-n reps     Repeat each measurement reps times");
-  puts("-p          Only parallel run (for profiling)");
+  puts("-p          Parallel baseline");
+  puts("-P          Only depspawn parallel run (for profiling)");
   puts("-q limit    queue limit");
   puts("-s          Work always on same tile (no parallelism)");
   puts("-T tilesz   Maximum tile size");
@@ -196,8 +218,11 @@ void process_arguments(int argc, char **argv)
       case 'n':
         NReps = strtoul(optarg, 0, 0);
         break;
-      case 'p':
+      case 'P':
         OnlyParallelRun = true;
+        break;
+      case 'p':
+        ParallelBaseline = true;
         break;
       case 'q' : /* queue limit */
         Queue_limit = strtoul(optarg, 0, 0);
@@ -233,7 +258,7 @@ int main(int argc, char **argv)
   TSeq.resize(NReps);
   TPar.resize(NReps);
 
-  std::cout << Nthreads << " threads max_tile_size=" << MaxTileSize << " NReps=" << NReps << " ClearCache=" << (ClearCaches ? 'Y' : 'N') << " QueueLimit=" << Queue_limit << " EnqueueTasks=" << (depspawn::internal::EnqueueTasks ? 'Y' : 'N') << std::endl;
+  std::cout << Nthreads << " threads max_tile_size=" << MaxTileSize << " NReps=" << NReps << " ClearCache=" << (ClearCaches ? 'Y' : 'N') << " QueueLimit=" << Queue_limit << " EnqueueTasks=" << (depspawn::internal::EnqueueTasks ? 'Y' : 'N') << " Baseline=" << (ParallelBaseline ? "Parallel" : "Sequential") << std::endl;
   
   if(!OnlyParallelRun) {
     // This is to try to build the threads before the first test; just in case
