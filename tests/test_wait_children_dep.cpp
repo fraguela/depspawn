@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2017 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2019 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ int main()
   
   spawn(f, x); //Sets x to 8
   
-  // We see that g does not begin until f and its chil longf finish,
+  // We see that g does not begin until f and its child longf finish,
   //even when longf carries not dependencies with g looking at its arguments
   spawn(g, x); //Sets x to 9
 

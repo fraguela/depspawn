@@ -62,7 +62,8 @@ In the example below
 	}
 ```
 
-Computing a histogram exploiting parallelism is challenging because it implies reductions of array positions obtained through indirections, so the dependencies between the reductions are only known at runtime. In our case, DepSpawn takes care of the problem:
+
+Computing a histogram exploiting parallelism is challenging because it implies reductions of array positions obtained through indirections, so the dependencies between the reductions are only known at runtime. In our case, DepSpawn can take care of the problem, although the performance obtained will be poor, as the granularity of each task is extremely small compared to the cost of packing it and analyzing its dedendencies. The point here is to highlight that DepSpawn supports arbitrarily complex and irregular patterns of dependencies:
 
 ```cpp
 	#include <iostream>
@@ -118,11 +119,15 @@ Computing a histogram exploiting parallelism is challenging because it implies r
 
 ### Documentation
 
-The best source for starting with DepSpawn is its [online documentation](http://fraguela.github.io/depspawn/), which includes detailed installation instructions, a step-by-step introduction that covers its semantics and API and several tips and tricks.
+The best source for starting with DepSpawn is its **[online documentation](http://fraguela.github.io/depspawn/)**, which includes detailed installation instructions, a step-by-step introduction that covers its semantics and API and several tips and tricks. 
 
-A more detailed description of the DepSpawn programming model can be found the publication [A framework for argument-based task synchronization with automatic detection of dependencies](http://www.des.udc.es/~basilio/papers/Gonzalez13-DepSpawn.pdf) ([DOI 10.1016/j.parco.2013.04.012](http://dx.doi.org/10.1016/j.parco.2013.04.012)), although it lacks some of the new synchronization mechanisms added in version 1.0.
+While the directory [`examples`](https://github.com/fraguela/depspawn/tree/master/examples) contains very basic examples, the large number of tests in the directory [`tests`](https://github.com/fraguela/depspawn/tree/master/tests) illustrate many interesting more complex possibilities such as using DepSpawn at several levels of parallelism, i.e., also within subtasks, or using (sub)array arguments. Read file [`Notes.txt`](Read https://github.com/fraguela/depspawn/blob/master/tests/Notes.txt) for a short description of each test provided.
+
+A more detailed description of the DepSpawn programming model can be found in the publication [A framework for argument-based task synchronization with automatic detection of dependencies](http://gac.udc.es/~basilio/papers/Gonzalez13-DepSpawn.pdf) ([DOI 10.1016/j.parco.2013.04.012](http://dx.doi.org/10.1016/j.parco.2013.04.012)), although it lacks some of the new synchronization mechanisms added in version 1.0.
 
 DepSpawn has been compared to other frameworks with the same goals in the publication [A Comparison of Task Parallel Frameworks based on Implicit Dependencies in Multi-core Environments](https://scholarspace.manoa.hawaii.edu/handle/10125/41914), achieving very good results.
+
+More recently, its runtime and clean interface and semantics have been extended to support task-based dataflow computing in multicore clusters in the publication [Easy dataflow programming in clusters with UPC++ DepSpawn](http://gac.udc.es/~basilio/papers/Fraguela19_UPCxxDepSpawn.pdf) ([DOI 10.1109/TPDS.2018.2884716](http://dx.doi.org/10.1109/TPDS.2018.2884716)).
 
 ### License
 
