@@ -45,7 +45,7 @@
   Makes exactly the same as test_array but using an int
 
 - test_lambda.cpp
-  Shows spawn of lambda functions and std::function (with functors). Also commented out spawns of functors and methods because they do not work.
+  Shows spawn of lambda functions, std::functions, functors and class/struct member functions.
 
 - test_out_scope.cpp
   Shows the problem of spawning routines whose arguments are temporaries of another function. 

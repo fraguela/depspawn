@@ -191,18 +191,70 @@ namespace depspawn {
     }
     ///@}
     
+
     /// \name Detects std::function and boost:function objects
     ///@{
     template<typename T>
-    struct is_function_object :public boost::false_type {};
+    struct is_function_object :public std::false_type {};
     
     template<typename T>
-    struct is_function_object<std::function<T>> : public boost::true_type {};
+    struct is_function_object<std::function<T>> : public std::true_type {};
     
     template<typename T>
-    struct is_function_object<boost::function<T>> : public boost::true_type {};
+    struct is_function_object<boost::function<T>> : public std::true_type {};
     ///@}
+
     
+    /** @name Extraction of parameter types as a boost::function_types::parameter_types
+     * These type traits provide the parameter types for any kind of callable object/function
+     */
+    ///@{
+    
+    /// Generic form
+    
+    template <typename T>
+    struct ParameterTypes {
+      using intl_type = typename function_type<T>::signature;
+      using type = typename ParameterTypes<intl_type>::type;
+    };
+    
+    template <typename T>
+    struct ParameterTypes<T&> {
+      using type = typename ParameterTypes<T>::type;
+    };
+    
+    template<typename R, typename... Types>
+    struct ParameterTypes<R(Types...)> {
+      using type = boost::function_types::parameter_types<R(Types...)>;
+    };
+    
+    template<typename Function>
+    struct ParameterTypes<std::function<Function>> {
+      using type = boost::function_types::parameter_types<Function>;
+    };
+    
+    template<typename Function>
+    struct ParameterTypes<boost::function<Function>> {
+      using type = boost::function_types::parameter_types<Function>;
+    };
+    
+    template<typename R, typename... Types>
+    struct ParameterTypes<R (&) (Types...)> {
+      using type = boost::function_types::parameter_types<R(Types...)>;
+    };
+    
+    template <typename R, typename C, typename... Types>
+    struct ParameterTypes<R (C::*)(Types...)> {
+      using type = boost::function_types::parameter_types<R(C&, Types...)>;
+    };
+    
+    template <typename R, typename C, typename... Types>
+    struct ParameterTypes<R (C::*)(Types...) const> {
+      using type = boost::function_types::parameter_types<R(C&, Types...)>;
+    };
+    
+    ///@}
+
     /// Data type for the base address of task arguments
     typedef size_t value_t;
     
@@ -211,7 +263,7 @@ namespace depspawn {
     
     /// Trait used to detect Blitz++ arrays
     template<typename T>
-    struct is_blitz_array : public boost::false_type {};
+    struct is_blitz_array : public std::false_type {};
     
     /// Information for one argument in a spawn invocation
     struct arg_info {
@@ -523,20 +575,6 @@ namespace depspawn {
       return process_argument + fill_args<typename boost::mpl::next<T_it>::type>(args, std::forward<Tail>(t)...);
     }
 
-/// Common steps to all the spawn function versions
-#define INLINED_IN_SPAWN(parameter_types)                                                                             \
-          internal::arg_info *pargs = nullptr;                                                                        \
-          const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, std::forward<Args>(args)...); \
-                                                                                                                      \
-          if(!internal::master_task)                                                                                  \
-            internal::start_master();                                                                                 \
-                                                                                                                      \
-          internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);                                      \
-                                                                                                                      \
-          w->insert_in_worklist(new (tbb::task::allocate_additional_child_of(*internal::master_task)) internal::runner<decltype(std::bind(f, internal::ref<Args&&>::make(args)...))>(w, f, std::forward<Args>(args)...));                                      \
-          /* w->run(); return *w->task; */
-
-
 /// Data type returned by spawn
 typedef void spawn_ret_t;
 
@@ -576,68 +614,33 @@ extern int get_num_threads() noexcept;
 
 #else
 
-  /// Spawns a std::function
   template<typename Function, typename... Args>
-  internal::spawn_ret_t spawn(const std::function<Function>& f, Args&&... args) {
-    typedef boost::function_types::parameter_types<Function> parameter_types;
-    INLINED_IN_SPAWN(parameter_types);
-  }
+  inline internal::spawn_ret_t spawn(const Function& f, Args&&... args) {
+    using parameter_types = typename internal::ParameterTypes<Function>::type;
 
-
-  /// Spawns a boost::function
-  template<typename Function, typename... Args>
-  internal::spawn_ret_t spawn(const boost::function<Function>& f, Args&&... args) {
-    typedef boost::function_types::parameter_types<Function> parameter_types;
-    INLINED_IN_SPAWN(parameter_types);
-  }
-
-
-  /// Spawns a regular (not lambda, std::function or boost::function) function
-  template<typename Function, typename... Args>
-  typename std::enable_if< std::is_reference<Function>::value &&
-                           std::is_function<typename std::remove_reference<Function>::type>::value, internal::spawn_ret_t >::type
-  spawn(Function&& f, Args&&... args) {
-    typedef boost::function_types::parameter_types<typename std::remove_reference<Function>::type> parameter_types;
-    INLINED_IN_SPAWN(parameter_types);
+    internal::arg_info *pargs = nullptr;
+    const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, std::forward<Args>(args)...);
+    
+    if(!internal::master_task)
+      internal::start_master();
+    
+    internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
+    w->insert_in_worklist(new (tbb::task::allocate_additional_child_of(*internal::master_task)) internal::runner<decltype(std::bind(f, internal::ref<Args&&>::make(args)...))>(w, f, std::forward<Args>(args)...));
   }
   
-  /// Spawns a lambda function
-  template<typename Function, typename... Args>
-  typename std::enable_if< ! std::is_reference<Function>::value &&
-                           ! std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
-  spawn(Function&& fl, Args&&... args) {
-    typedef typename internal::function_type<Function>::signature signature_type;
-    typedef boost::function_types::parameter_types<signature_type> parameter_types;
-
-    const std::function<signature_type> f = internal::make_function(std::forward<Function>(fl));
-    INLINED_IN_SPAWN(parameter_types);
-  }
-
-  /// Spawns a pointer to member function
-  template<typename Function, typename... Args>
-  typename std::enable_if< std::is_member_function_pointer<Function>::value, internal::spawn_ret_t >::type
-  spawn(Function f1, Args&&... args) {
-    /* with "Function f" : Works fine for gcc 4.7.1 and 5.3.0, but not Apple's clang :((
-    typedef boost::function_types::parameter_types<Function> parameter_types;
-    */
-    typedef typename internal::function_type<Function>::signature signature_type;
-    typedef boost::function_types::parameter_types<signature_type> parameter_types;
-    
-    const std::function<signature_type> f = internal::make_function(std::forward<Function>(f1));
-    INLINED_IN_SPAWN(parameter_types);
-  }
-
   /// Spawns a functor, but only if there is a single operator()
   template<typename T, typename... Args>
   typename std::enable_if< std::is_reference<T>::value &&
                          ! std::is_member_function_pointer<typename std::remove_reference<T>::type>::value &&
                          ! std::is_function<typename std::remove_reference<T>::type>::value &&
-                         ! internal::is_function_object<typename std::remove_reference<T>::type>::value, internal::spawn_ret_t >::type
+                         ! internal::is_function_object<typename std::remove_reference<T>::type>::value,
+                           internal::spawn_ret_t >::type
   spawn(T&& functor, Args&&... args) {
-    typedef typename std::remove_reference<T>::type base_type;
+    using base_type = typename std::remove_reference<T>::type;
     return spawn(& base_type::operator(), std::forward<T>(functor), std::forward<Args>(args)...);
   }
 
+  
 #endif // SEQUENTIAL_DEPSPAWN
 
   /// Waits for all tasks to finish
@@ -792,7 +795,7 @@ extern int get_num_threads() noexcept;
 namespace depspawn { \
   namespace internal { \
     template<> \
-    struct is_blitz_array<blitz::Array<type, dim>> : public boost::true_type {}; \
+    struct is_blitz_array<blitz::Array<type, dim>> : public std::true_type {}; \
   }; \
 };
 
