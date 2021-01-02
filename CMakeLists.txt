@@ -32,7 +32,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 find_package( Boost )
 
 if(${Boost_FOUND})
-  include_directories( ${Boost_INCLUDE_DIR} )
+  include_directories( ${Boost_INCLUDE_DIRS} )
 else(${Boost_FOUND})
   message( WARNING "***********************************************\n           Boost could not be found            \nDepSpawn will use and install a subset of boost\n***********************************************")
   install( DIRECTORY ./include/boost

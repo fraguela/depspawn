@@ -22,18 +22,14 @@
 
 #include <iostream>
 #include <tbb/task_scheduler_init.h>
-#include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include <blitz/array.h>
 #include "depspawn/depspawn.h"
+#include "common_io.cpp"  // This is only for serializing parallel prints
 
 using namespace depspawn;
 using namespace blitz;
 
 Array<int , 1> r(10), a(100);
-
-tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
-
-#define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 void addreduce(int& result, const Array<int , 1>& values)
 {

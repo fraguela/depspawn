@@ -25,16 +25,12 @@
 #include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include <atomic>
-#include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
+#include "common_io.cpp"  // This is only for serializing parallel prints
 
 #include "depspawn/depspawn.h"
 
 using namespace boost;
 using namespace depspawn;
-
-tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
-
-#define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
 
 typedef int ct22[22];
 

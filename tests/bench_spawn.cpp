@@ -25,19 +25,14 @@
 #include <cstring>
 #include <iostream>
 #include <chrono>
-#include <tbb/spin_mutex.h>  // This is only for serializing parallel prints
 #include "depspawn/depspawn.h"
+#include "common_io.cpp"  // This is only for serializing parallel prints
 
 #define N      400000
 
 using namespace depspawn;
 
 typedef void (*voidfptr)();
-
-tbb::spin_mutex  my_io_mutex; // This is only for serializing parallel prints
-
-#define LOG(...)   do{ tbb::spin_mutex::scoped_lock l(my_io_mutex); std::cerr << __VA_ARGS__ << std::endl; }while(0)
-
 
 std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1, t2;
 
