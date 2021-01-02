@@ -22,7 +22,6 @@
 
 #include <iostream>
 #include <functional>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
@@ -95,9 +94,8 @@ void g2(int *ptr)
 
 int main()
 { int i;
-  
-  
-  tbb::task_scheduler_init tbbinit;
+
+  set_threads();
   
   ////// FIRST TEST USING A REGULAR FUNCTION
   

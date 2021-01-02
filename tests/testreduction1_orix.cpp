@@ -21,7 +21,6 @@
 ///
 
 #include <iostream>
-#include <tbb/task_scheduler_init.h>
 #include <blitz/array.h>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
@@ -55,7 +54,7 @@ void print(const Array<int , 1>& v, const char * msg = 0)
 int main()
 { int i, result;
   
-  tbb::task_scheduler_init tbbinit;
+  set_threads();
   
   for (i = 0; i < 100; i++) {
     a(i) = i;

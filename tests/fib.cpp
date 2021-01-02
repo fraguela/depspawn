@@ -22,8 +22,6 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
-//#include "tbb/compat/thread"
-//#include <iostream>
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>

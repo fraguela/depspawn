@@ -23,7 +23,6 @@
 #include <ctime>
 #include <iostream>
 #include <functional>
-#include <tbb/task_scheduler_init.h>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
 
@@ -87,11 +86,8 @@ public:
 int main()
 {
 
-  //in_stack(i);
-  //in_stack(tmpresult);
-  
-  tbb::task_scheduler_init tbbinit;
-  
+  set_threads();
+
   spawn([](int &r, const int& i) { r = i + 1; LOG("setting " << r); }, tmpresult, 99);
   
   spawn([](int &r, const int& i) { r = 2 * i; LOG("setting " << r); }, i, tmpresult);

@@ -23,7 +23,6 @@
 #include <cstdlib>
 #include <cassert>
 #include <iostream>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
@@ -84,8 +83,8 @@ int main(int argc, char **argv)
   
   printf("Using %d chunks\n", CHUNKS);
   
-  tbb::task_scheduler_init tbbinit;
-  
+  set_threads();
+
   for (i = 0; i < N; i++) {
     v[i] = i;
   }

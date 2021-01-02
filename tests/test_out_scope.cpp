@@ -21,7 +21,6 @@
 ///
 
 #include <iostream>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
@@ -115,7 +114,7 @@ void g() {
 
 int main()
 {
-  tbb::task_scheduler_init tbbinit;
+  set_threads();
   
   t0 = std::chrono::high_resolution_clock::now();
   

@@ -23,7 +23,6 @@
 #include <iostream>
 #include <cstdlib>
 //#include <algorithm>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include <atomic>
 #include "depspawn/depspawn.h"
@@ -134,7 +133,7 @@ int main(int argc, char **argv) {
 
   const int nthreads = (argc == 1) ? 8 : atoi(argv[1]);
   
-  tbb::task_scheduler_init tbbinit(nthreads);
+  set_threads(nthreads);
   
   std::cout << "Running with " << nthreads << " threads" << std::endl;
   

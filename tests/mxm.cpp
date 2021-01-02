@@ -22,7 +22,6 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include <blitz/array.h>
 #include "depspawn/depspawn.h"
@@ -81,8 +80,7 @@ int main(int argc, char **argv)
   
   CHUNKS = (argc == 1) ? 4 : atoi(argv[1]);
   
-  tbb::task_scheduler_init tbbinit;
-
+  set_threads();
   
   for (i = 0; i < N; i++) {
     for( j = 0; j < N; j++) {

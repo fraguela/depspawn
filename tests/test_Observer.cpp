@@ -22,7 +22,6 @@
 
 #include <iostream>
 #include <ctime>
-#include <tbb/task_scheduler_init.h>
 #include <chrono>
 #include "depspawn/depspawn.h"
 #include "common_io.cpp"  // This is only for serializing parallel prints
