@@ -131,5 +131,5 @@ More recently, its runtime and clean interface and semantics have been extended 
 
 ### License
 
-DepSpawn is licensed under the [Apache license V2](http://www.apache.org/licenses/) because [that is the license for the Intel® TBB](https://www.threadingbuildingblocks.org/how-tbb-licensed) threading system it relies on. If you change it to rely on any other threading system, feel free to adapt the license accordingly.
+DepSpawn is licensed under the [MIT license](https://en.wikipedia.org/wiki/MIT_License).
 
