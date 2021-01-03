@@ -38,7 +38,7 @@ struct PoolAllocator_malloc_free
 };
 
 /// \brief Pool implemented by means of a linked list with atomic operations
-/// \tparam T type of the objects of the pool
+/// \tparam T type of the objects of the pool. They must have a field <tt>T * next</tt>
 /// \tparam SCALABLE Whether the heap is managed with std::malloc/free (false) or tbb::scalable_malloc/scalable_free (true)
 template <typename T, bool SCALABLE>
 class LinkedListPool {
@@ -99,16 +99,16 @@ public:
   /// \brief Constructor
   /// \param chunkSize  number of elements to allocate at once in chunk when the pool is empty
   /// \param min_t_size minimum space to allocate for each item.
-  LinkedListPool(int chunkSize = 1, int min_t_size = sizeof(T)) :
-  chunkSize_(chunkSize),
-  minTSize_(sizeof(T) > min_t_size ? sizeof(T) : min_t_size),
-  head_(nullptr),
-  pool_mutex_(ATOMIC_FLAG_INIT)
+  LinkedListPool(const int chunkSize = 1, const size_t min_t_size = sizeof(T)) :
+  chunkSize_{(chunkSize < 1) ? 1 : chunkSize},
+  minTSize_{static_cast<int>((sizeof(T) > min_t_size) ? sizeof(T) : min_t_size)},
+  head_{nullptr},
+  pool_mutex_{ATOMIC_FLAG_INIT}
   {
-    //BBF: Test chunkSize > 0 ?
     allocate();
   }
 
+  /// \brief Destructor
   ~LinkedListPool()
   {
     typename vector_t::const_iterator const itend = v_.end();
@@ -118,22 +118,16 @@ public:
 
   /// Return an item to the pool
   void free(T* const datain) noexcept
-  { T *p;
-    
-    p = head_;
-    do {
-      datain->next = p;
-    } while(!head_.compare_exchange_weak(p, datain)); //while(head_.compare_and_swap(datain, p) != p);
+  {
+    datain->next = head_.load(std::memory_order_relaxed);
+    while(!head_.compare_exchange_weak(datain->next, datain));
   }
   
   /// Return a linked list of items to the pool when the end is known
   void freeLinkedList(T* const datain, T* const last_datain) noexcept
-  { T *p;
-    
-    p = head_;
-    do {
-      last_datain->next = p;
-    } while(!head_.compare_exchange_weak(p, datain)); //while(head_.compare_and_swap(datain, p) != p);
+  {
+    last_datain->next = head_.load(std::memory_order_relaxed);
+    while(!head_.compare_exchange_weak(last_datain->next, datain));
   }
   
   /// Return a linked list of items to the pool when the end is unknown
@@ -175,20 +169,21 @@ public:
     freeLinkedList(datain, p);
   }
   
-  /// Get an item from the pool
+  /// \brief Get an item from the pool without invoking a constructor
+  /// \internal May suffer ABA problem giving place to memory leaks
   T* malloc()
   { T *ret, *next_val;
     
-    ret = head_;
+    ret = head_.load(std::memory_order_relaxed);
     do {
       while(ret == nullptr) {
         allocate();
-        ret = head_;
+        ret = head_.load(std::memory_order_relaxed);
       }
       next_val = static_cast<T *>(ret->next);
-    } while(!head_.compare_exchange_weak(ret, next_val)); //while(head_.compare_and_swap(next_val, ret) != ret);
+    } while(!head_.compare_exchange_weak(ret, next_val));
     
-    //BBF: Notice that we do not make a new (ret) T()
+    //Notice that we do not make a new (ret) T()
     return ret;
   }
 

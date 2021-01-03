@@ -18,8 +18,18 @@
 #include <vector>
 #include <unistd.h>
 #include "depspawn/depspawn.h"
+
+#ifdef USE_TBB
+
 #include <tbb/task_group.h>
 #include <tbb/parallel_for.h>
+
+#else
+
+#include "depspawn/TaskPool.h"
+TaskPool *TP;
+
+#endif
 
 using namespace depspawn;
 
@@ -84,6 +94,7 @@ double bench_serial_time(const size_t ntasks, int nreps)
     std::chrono::high_resolution_clock::time_point t0 = std::chrono::high_resolution_clock::now();
     
     if (ParallelBaseline) {
+#ifdef USE_TBB
       tbb::task_group g;
       for (size_t i = 0; i < ntasks; i++) {
         g.run([&, i] { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); });
@@ -93,6 +104,13 @@ double bench_serial_time(const size_t ntasks, int nreps)
         std::cerr << "incomplete parallel task_group" << std::endl;
         exit(EXIT_FAILURE);
       }
+#else
+      TP->launch_threads();
+      for (size_t i = 0; i < ntasks; i++) {
+        TP->enqueue([&, i] { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); });
+      }
+      TP->wait(false);
+#endif
     } else {
       for (size_t i = 0; i < ntasks; i++) {
         seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2);
@@ -241,6 +259,10 @@ int main(int argc, char **argv)
   
   set_threads(Nthreads);
 
+#ifndef USE_TBB
+  TP = new TaskPool(Nthreads, 8, false);
+#endif
+  
   if (Queue_limit >= 0) {
     set_task_queue_limit(Queue_limit);
   }
@@ -249,12 +271,25 @@ int main(int argc, char **argv)
   TPar.resize(NReps);
 
   std::cout << Nthreads << " threads max_tile_size=" << MaxTileSize << " NReps=" << NReps << " ClearCache=" << (ClearCaches ? 'Y' : 'N') << " QueueLimit=" << Queue_limit << " EnqueueTasks=" << (depspawn::internal::EnqueueTasks ? 'Y' : 'N') << " Baseline=" << (ParallelBaseline ? "Parallel" : "Sequential") << std::endl;
-  
+  std::cout <<
+#ifndef USE_TBB
+  "non-" <<
+#endif
+  "TBB version\n";
+
   if(!OnlyParallelRun) {
+    const auto task = [] (size_t i) { Destination[i].clear(); };
+
+#ifdef USE_TBB
     // This is to try to build the threads before the first test; just in case
-    tbb::parallel_for(size_t(0), MAX_NTASKS, [](size_t i) {
-      Destination[i].clear();
-    });
+    tbb::parallel_for(size_t(0), MAX_NTASKS, task);
+#else
+    TP->launch_threads();
+    for (size_t i = 0; i < MAX_NTASKS; i++) {
+      TP->enqueue(task, i);
+    }
+    TP->wait(false);
+#endif
 
     //1-time runtime preheat (for memory pools)
     bench_parallel_time(MaxNTasks, 1);
