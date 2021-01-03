@@ -45,6 +45,7 @@ option( DEPSPAWN_FAST_START    "Launcher thread executes tasks when many are enq
 option( DEPSPAWN_DUMMY_POOL    "Do not actually use a pool" ON)
 option( DEPSPAWN_SCALABLE_POOL "Use tbb::scalable_malloc/free instead of std::malloc/free" OFF)
 option( DEPSPAWN_PROFILE       "Do profiling" OFF)
+option( DEPSPAWN_USE_TBB       "Rely on TBB" ON)
 
 if(DEPSPAWN_FAST_START)
 # Only affects .cpp files, so no need to fix in headers
@@ -70,7 +71,7 @@ if(DEPSPAWN_PROFILE)
   add_definitions(-DDEPSPAWN_PROFILE)
 endif(DEPSPAWN_PROFILE)
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
 
 include_directories( include )
 

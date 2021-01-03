@@ -17,7 +17,10 @@
 #include <cstdlib>
 #include <vector>
 #include <atomic>
+
+#ifdef DEPSPAWN_USE_TBB
 #include <tbb/scalable_allocator.h>
+#endif
 
 /// \brief Provides a common API for heap allocation/deallocation
 /// \tparam SCALABLE Whether the heap is managed with std::malloc/free (false) or tbb::scalable_malloc/scalable_free (true)
@@ -29,11 +32,27 @@ struct PoolAllocator_malloc_free
   
   /// Allocate nbytes bytes of space in the head
   static char * malloc(const size_type nbytes)
-  { return static_cast<char *>(SCALABLE ? scalable_malloc(nbytes) : std::malloc(nbytes)); }
+  { void *ret;
+
+#ifdef DEPSPAWN_USE_TBB
+    if(SCALABLE)
+      ret = scalable_malloc(nbytes);
+    else
+#endif
+      ret = std::malloc(nbytes);
+    return static_cast<char *>(ret);
+  }
   
   /// Deallocate the head space pointed by block
   static void free(char * const block)
-  { if(SCALABLE) scalable_free(block); else std::free(block); }
+  {
+#ifdef DEPSPAWN_USE_TBB
+    if(SCALABLE)
+      scalable_free(block);
+    else
+#endif
+      std::free(block);
+  }
   
 };
 

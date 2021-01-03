@@ -9,58 +9,48 @@
 #define __TASKPOOL_H_
 
 #include <boost/lockfree/queue.hpp>
-#include <sstream>
 #include "ThreadPool.h"
 #include "LinkedListPool.h"
 
+namespace depspawn {
+
+namespace internal {
+
+struct Workitem;
+
+/// Pointer to the father of the task currently being executed, or nullptr if it is the root
+extern DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father;
 
 class TaskPool {
 
   public:
   
   struct Task {
+
     std::function<void()> func_;
-    std::atomic<int> ndeps_;
+    Workitem *ctx_;
     Task *next; //< used by LinkedListPool and pointer to TaskPool
     
     Task() :
-    ndeps_{0},
+    ctx_{nullptr},
     next{nullptr}
     {}
     
     template<typename F>
-    Task(TaskPool * const pt, const F& f) :
+    Task(TaskPool * const pt, Workitem *const ctx, const F& f) :
     func_{f},
-    ndeps_{0},
+    ctx_{ctx},
     next{reinterpret_cast<Task *>(pt)}
     {}
 
     template<typename F>
-    Task(TaskPool * const pt, F&& f) :
+    Task(TaskPool * const pt, Workitem *const ctx, F&& f) :
     func_{std::move(f)},
-    ndeps_{0},
+    ctx_{ctx},
     next{reinterpret_cast<Task *>(pt)}
     {}
-    
-    void ndeps(int i) noexcept { ndeps_.store(i, std::memory_order_relaxed); }
 
-    int ndeps() const noexcept { return ndeps_.load(std::memory_order_relaxed); }
-
-    void incr_deps(const int n = 1) noexcept { ndeps_.fetch_add(n); }
-
-    void decr_deps(const int n = 1)
-    {
-      if (ndeps_.fetch_sub(n) == 1) {
-        reinterpret_cast<TaskPool *>(next)->enqueue(this);
-      }
-    }
-
-    /// \brief Waits for this specific task
-    /// \internal Must be called before it is triggered by decr_deps, thus put 1 extra dep
-    void wait()
-    {
-      reinterpret_cast<TaskPool *>(next)->wait_on(this);
-    }
+    void run(); //See depspawn.cpp
 
   };
 
@@ -73,22 +63,11 @@ private:
   LinkedListPool<Task, false> task_pool_;
   volatile bool finish_;
   
-  void run(Task *const p)
+  void run(Task * const p)
   {
-    p->func_();
+    p->run();
     p->~Task();
     task_pool_.free(p);
-  }
-
-  bool try_run()
-  { Task *p;
-    
-    const bool ret = queue_.pop(p);
-    if (ret) {
-      run(p);
-    }
-    
-    return ret;
   }
 
   void main()
@@ -127,6 +106,9 @@ public:
   TaskPool(nthreads, Default_Max_Tasks_Per_Thread, launch)
   { }
 
+  /// Return whether the pool threads are currently running
+  bool is_running() const noexcept { return !finish_; }
+
   /// Launchs the threads to execution if they are not running
   void launch_threads()
   {
@@ -136,20 +118,37 @@ public:
     }
   }
 
+  /// Return the number of threads in the pool
   int nthreads() const noexcept { return thread_pool_.nthreads(); }
   
-  template<class F, class... Args>
-  Task *build_task(F&& f, Args&&... args)
-  {
-    return task_pool_.malloc(this, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+  /// \brief Tries to run one pending task, if available
+  /// \return Whether any task was actually run
+  bool try_run()
+  { Task *p;
+    
+    const bool ret = queue_.pop(p);
+    if (ret) {
+      run(p);
+    }
+    
+    return ret;
   }
 
+  /// Builds a task for running a function with a series of arguments
+  template<class F, class... Args>
+  Task *build_task(Workitem *ctx, F&& f, Args&&... args)
+  {
+    return task_pool_.malloc(this, ctx, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+  }
+
+  /// Enqueues a task for running a function with a series of arguments
   template<class F, class... Args>
   void enqueue(F&& f, Args&&... args)
   {
-    enqueue(build_task(std::forward<F>(f), std::forward<Args>(args)...));
+    enqueue(build_task(nullptr, std::forward<F>(f), std::forward<Args>(args)...));
   }
 
+  /// Enqueues a task for execution regardless of its number of dependencies
   void enqueue(Task * const task_ptr)
   {
     //automatically launching threads within enqueue is dangerous for unstructured/external tasks
@@ -164,17 +163,6 @@ public:
   void empty_queue()
   {
     while (try_run()) { }
-  }
-
-  /// \brief Waits for a task to be ready and then runs it locally
-  ///
-  /// The task must have been allocated with one extra dependency
-  void wait_on(Task * const task_ptr)
-  {
-    while (task_ptr->ndeps() != 1) {
-      try_run();
-    }
-    run(task_ptr);
   }
 
   /// \brief Active wait until all tasks complete
@@ -197,5 +185,9 @@ public:
   }
 
 };
+
+} //namespace  internal
+
+} //namespace depspawn
 
 #endif

@@ -28,7 +28,8 @@ namespace depspawn {
       if(father)
         father->nchildren.fetch_add(1);
     }
-    
+
+#ifdef DEPSPAWN_USE_TBB
     AbstractBoxedFunction * Workitem::steal() {
       AbstractBoxedFunction * ret = nullptr;
       if( (status == Status_t::Ready) && (!guard_.fetch_add(1)) ) {
@@ -46,6 +47,7 @@ namespace depspawn {
       }
       return ret;
     }
+#endif
 
     void Workitem::insert_in_worklist(AbstractRunner* itask)
     { Workitem* p;
@@ -68,8 +70,13 @@ namespace depspawn {
       DEPSPAWN_PROFILEACTION(profile_jobs++);
       
 #ifdef DEPSPAWN_FAST_START
+#ifdef DEPSPAWN_USE_TBB
       AbstractBoxedFunction *stolen_abf = nullptr;
+      static constexpr int FAST_ARR_SZ  = 16;
       Workitem* fast_arr[FAST_ARR_SZ];
+#else
+      bool steal_work = false;
+#endif
       int nready = 0, nfillwait = 0;
 #endif
       
@@ -117,7 +124,6 @@ namespace depspawn {
                 newdep->next = nullptr;
                 newdep->w = this;
                 
-                //tbb::mutex::scoped_lock lock(p->deps_mutex);
                 while (p->deps_mutex_.test_and_set(std::memory_order_acquire))  // acquire lock
                   ; // spin
                 
@@ -176,7 +182,9 @@ namespace depspawn {
             const auto tmp_status = p->status;
             nfillwait += ( tmp_status < Status_t::Ready );
             if ( tmp_status == Status_t::Ready ) {
+#ifdef DEPSPAWN_USE_TBB
               fast_arr[nready & (FAST_ARR_SZ - 1)] = p;
+#endif
               nready++;
             }
 #endif
@@ -192,11 +200,15 @@ namespace depspawn {
 #ifdef DEPSPAWN_FAST_START
       if ((nready > FAST_THRESHOLD) || ((nready > Nthreads) && (nfillwait > FAST_THRESHOLD))) {
         DEPSPAWN_PROFILEACTION(profile_steal_attempts++);
+#ifdef DEPSPAWN_USE_TBB
         nready = (nready - 1) & (FAST_ARR_SZ - 1);
         do {
           p = fast_arr[nready--];
           stolen_abf = p->steal();
         } while ( (stolen_abf == nullptr) && (nready >= 0) );
+#else
+        steal_work = true;
+#endif
       }
 #endif
 
@@ -210,11 +222,17 @@ namespace depspawn {
       }
 
 #ifdef DEPSPAWN_FAST_START
+#ifdef DEPSPAWN_USE_TBB
       if (stolen_abf != nullptr) {
         DEPSPAWN_PROFILEACTION(profile_steals++);
         stolen_abf->run_in_env(false);
         delete stolen_abf;
       }
+#else
+      if(steal_work && TP->try_run()) {
+        DEPSPAWN_PROFILEACTION(profile_steals++);
+      }
+#endif
 #endif
       
       DEPSPAWN_PROFILEACTION(
@@ -243,7 +261,7 @@ namespace depspawn {
         current->status = Status_t::Done;
       
         /* Without this fence the change of status can be unseen by Workitems that are Filling in */
-        std::atomic_thread_fence(std::memory_order_seq_cst); // tbb::atomic_fence();
+        std::atomic_thread_fence(std::memory_order_seq_cst);
       
         erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && eraser_assigned.compare_exchange_weak(erase, true));
       

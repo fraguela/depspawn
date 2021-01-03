@@ -24,28 +24,8 @@
 #include <boost/mpl/begin.hpp>
 #include <boost/mpl/next.hpp>
 #include <boost/mpl/deref.hpp>
-#include <tbb/task.h>
 #include <atomic>
-#include <tbb/task_scheduler_init.h>
-
 #include "depspawn/fixed_defines.h"
-
-#ifndef DEPSPAWN_SCALABLE_POOL
-/// Whether the library pools will use std::malloc/free (false) or tbb::scalable_malloc/scalable_free (true)
-#define DEPSPAWN_SCALABLE_POOL false
-#endif
-
-#ifdef WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
-
-#ifdef DEPSPAWN_DUMMY_POOL
-#include "depspawn/DummyLinkedListPool.h"
-#else
-#include "depspawn/LinkedListPool.h"
-#endif
 
 #ifdef BZ_ARRAY_H
 #ifndef DEPSPAWN_BLITZ
@@ -59,6 +39,32 @@
 #define DEPSPAWN_THREADLOCAL __declspec(thread)
 #else
 #define DEPSPAWN_THREADLOCAL thread_local
+#endif
+
+
+#ifdef DEPSPAWN_USE_TBB
+#include <tbb/task.h>
+#endif
+
+// It is also included when DEPSPAWN_USE_TBB for the sake of TaskPool::Task::run and bench_sched_perf
+#include "depspawn/TaskPool.h"
+
+
+#ifndef DEPSPAWN_SCALABLE_POOL
+/// Whether the library pools will use std::malloc/free (false) or TBB scalable allocation (true)
+#define DEPSPAWN_SCALABLE_POOL false
+#endif
+
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+#ifdef DEPSPAWN_DUMMY_POOL
+#include "depspawn/DummyLinkedListPool.h"
+#else
+#include "depspawn/LinkedListPool.h"
 #endif
 
 /// \namespace depspawn
@@ -381,14 +387,21 @@ namespace depspawn {
     
     /////////////////////////////////////////
 
+#ifdef DEPSPAWN_USE_TBB
     /// Root task, from which all the spawned ones descend
     extern tbb::task* volatile master_task;
-    
-    /// Whether tasks are normally spawned (false) or enqueued (true)
-    extern bool EnqueueTasks;
 
     struct AbstractBoxedFunction;
     struct AbstractRunner;
+#else
+    extern TaskPool * volatile TP;
+    using AbstractRunner = TaskPool::Task;
+#endif
+
+    /// Whether tasks are normally spawned (false) or enqueued (true)
+    extern bool EnqueueTasks;
+
+    
     
   } //namespace  internal
 
@@ -409,7 +422,9 @@ namespace depspawn {
     
     /// Common steps for wait_for operations
     extern void common_wait_for(arg_info *pargs, int nargs);
-    
+
+#ifdef DEPSPAWN_USE_TBB
+
     /// Common elements to all BoxedFunction objects. Provides type-independent run() API
     struct AbstractBoxedFunction {
       
@@ -471,7 +486,7 @@ namespace depspawn {
       
       virtual ~AbstractRunner() {}
     };
-    
+
     /// Manages after-run ops
     template<typename Function>
     struct runner : public AbstractRunner {
@@ -531,6 +546,7 @@ namespace depspawn {
       virtual ~runner() {}
   
     };
+#endif
 
     /// Argument analysis base case
     template<typename T_it>
@@ -586,14 +602,12 @@ extern int get_task_queue_limit() noexcept;
 /// If the library has been compiled with DEPSPAWN_FAST_START, it also invokes
 /// set_task_queue_limit() asking for two ready tasks per thread, which is the default.
 ///
-/// \param nthreads Number of threads to use.
-///                 The value tbb::task_scheduler_init::automatic creates one
+/// \param nthreads Number of threads to use. The value -1 uses one
 ///                 thread per hardware thread available, which is the default
 ///                 behavior when the argument is not specified.
 /// \param thread_stack_size Stack size for each thread.
 ///                 A value 0 specifies the use of the default stack size.
-extern void set_threads(int nthreads = tbb::task_scheduler_init::automatic,
-                        tbb::stack_size_type thread_stack_size = 0);
+extern void set_threads(int nthreads = -1, size_t thread_stack_size = 0);
 
 /// Retrieve number of threads currently in use
 extern int get_num_threads() noexcept;
@@ -610,12 +624,20 @@ extern int get_num_threads() noexcept;
 
     internal::arg_info *pargs = nullptr;
     const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, std::forward<Args>(args)...);
-    
+
+#ifdef DEPSPAWN_USE_TBB
     if(!internal::master_task)
       internal::start_master();
     
     internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
     w->insert_in_worklist(new (tbb::task::allocate_additional_child_of(*internal::master_task)) internal::runner<decltype(std::bind(f, internal::ref<Args&&>::make(args)...))>(w, f, std::forward<Args>(args)...));
+#else
+    if(!internal::TP || !internal::TP->is_running())
+      internal::start_master();
+    
+    internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
+    w->insert_in_worklist(internal::TP->build_task(w, f, internal::ref<Args&&>::make(args)...));
+#endif
   }
   
   /// Spawns a functor, but only if there is a single operator()
@@ -650,7 +672,11 @@ extern int get_num_threads() noexcept;
   template<typename... Args>
   void wait_for(const Args&... args) {
 
+#ifdef DEPSPAWN_USE_TBB
     if(!internal::master_task) //There should be nothing to wait for
+#else
+    if(!internal::TP || !internal::TP->is_running()) //There should be nothing to wait for
+#endif
       return;
     
     typedef void Function(const Args&... args);
@@ -658,19 +684,7 @@ extern int get_num_threads() noexcept;
     typedef boost::function_types::parameter_types<Function> parameter_types;
     internal::arg_info *pargs = nullptr;
     const int nargs = internal::fill_args<typename boost::mpl::begin<parameter_types>::type>(pargs, args...);
-    
-    /*
-    tbb::task* const dummy = new (tbb::task::allocate_root()) tbb::empty_task;
-    dummy->set_ref_count(1 + 1);
-    
-    internal::Workitem* w = internal::Workitem::Pool.malloc(pargs);
-    // w->insert_in_worklist(new (dummy->allocate_child()) internal::runner<decltype(std::bind(f, args...))>(w, f, args...));
-    w->insert_in_worklist(new (dummy->allocate_child()) internal::runner<decltype(FV)>(w, FV));
-    
-    dummy->wait_for_all();
-    dummy->destroy(*dummy);
-    */
-    
+
     internal::common_wait_for(pargs, nargs);
   }
 

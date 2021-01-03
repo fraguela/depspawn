@@ -4,7 +4,6 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
-
 #ifndef __THREADPOOL_H_
 #define __THREADPOOL_H_
 
@@ -14,6 +13,10 @@
 #include <stdexcept>
 #include <mutex>
 #include <condition_variable>
+
+namespace depspawn {
+
+namespace internal {
 
 /// \brief Resizeable and reusable pool of threads
 /// \internal It must be manipulated by an external main thread, not one in the pool
@@ -134,5 +137,9 @@ public:
   }
   
 };
+
+} //namespace  internal
+
+} //namespace depspawn
 
 #endif

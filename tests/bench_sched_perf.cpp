@@ -19,6 +19,9 @@
 #include <unistd.h>
 #include "depspawn/depspawn.h"
 
+using namespace depspawn;
+
+// USE_TBB differs from DEPSPAWN_USE_TBB as it controls the parallel baseline, not depspawn
 #ifdef USE_TBB
 
 #include <tbb/task_group.h>
@@ -27,11 +30,10 @@
 #else
 
 #include "depspawn/TaskPool.h"
-TaskPool *TP;
+internal::TaskPool *TP;
 
 #endif
 
-using namespace depspawn;
 
 constexpr size_t MAX_TILE_SZ = 100;
 constexpr size_t MAX_NTASKS = (1 << 14);
@@ -260,7 +262,7 @@ int main(int argc, char **argv)
   set_threads(Nthreads);
 
 #ifndef USE_TBB
-  TP = new TaskPool(Nthreads, 8, false);
+  TP = new internal::TaskPool(Nthreads, 8, false);
 #endif
   
   if (Queue_limit >= 0) {
@@ -271,11 +273,12 @@ int main(int argc, char **argv)
   TPar.resize(NReps);
 
   std::cout << Nthreads << " threads max_tile_size=" << MaxTileSize << " NReps=" << NReps << " ClearCache=" << (ClearCaches ? 'Y' : 'N') << " QueueLimit=" << Queue_limit << " EnqueueTasks=" << (depspawn::internal::EnqueueTasks ? 'Y' : 'N') << " Baseline=" << (ParallelBaseline ? "Parallel" : "Sequential") << std::endl;
+
   std::cout <<
 #ifndef USE_TBB
   "non-" <<
 #endif
-  "TBB version\n";
+  "TBB parallel baseline version\n";
 
   if(!OnlyParallelRun) {
     const auto task = [] (size_t i) { Destination[i].clear(); };

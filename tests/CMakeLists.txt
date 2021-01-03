@@ -14,7 +14,11 @@ cmake_minimum_required( VERSION 2.8.7 )
 add_definitions( -DBZ_THREADSAFE -DBZ_THREADSAFE_USE_TBB )
 
 include_directories( ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/depspawn-blitz-0.10 )
-link_libraries( depspawn tbb tbbmalloc )
+link_libraries( depspawn )
+
+if(DEPSPAWN_USE_TBB)
+	link_libraries( tbb tbbmalloc )
+endif(DEPSPAWN_USE_TBB)
 
 if(${UNIX})
   if(${APPLE})

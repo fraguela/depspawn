@@ -12,6 +12,8 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
+#cmakedefine DEPSPAWN_USE_TBB
+
 #cmakedefine DEPSPAWN_DUMMY_POOL
 
 #define DEPSPAWN_SCALABLE_POOL @DEPSPAWN_SCALABLE_POOL_STR@

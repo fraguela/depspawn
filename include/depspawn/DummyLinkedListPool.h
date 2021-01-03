@@ -15,13 +15,29 @@
 #define __DUMMYLINKEDLISTPOOL_H
 
 #include <cstdlib>
+
+#ifdef DEPSPAWN_USE_TBB
 #include <tbb/scalable_allocator.h>
+#endif
 
 /// \brief Provides an API analogous to that of LinkedListPool but without providing an actual pool
 /// \tparam T type of the objects of the fictional pool
 /// \tparam SCALABLE Whether the heap is managed with std::malloc/free (false) or tbb::scalable_malloc/scalable_free (true)
 template <typename T, bool SCALABLE>
 class DummyLinkedListPool {
+
+
+  static T *malloc_api()
+  {
+    return static_cast<T *>(
+#ifdef DEPSPAWN_USE_TBB
+    SCALABLE ? scalable_malloc(sizeof(T)) : std::malloc(sizeof(T))
+#else
+                            std::malloc(sizeof(T))
+#endif
+                            );
+  }
+
 
 public:
   
@@ -33,7 +49,13 @@ public:
   static void free(T* const datain)
   {
     datain->~T();
-    if(SCALABLE) scalable_free(datain); else std::free(datain);
+
+#ifdef DEPSPAWN_USE_TBB
+    if(SCALABLE)
+      scalable_free(datain);
+    else
+#endif
+      std::free(datain);
   }
   
   /// Return a linked list of items to the pool when the end is known (just deallocates them all)
@@ -75,7 +97,7 @@ public:
   /// Get an item from the pool (just allocate and default-construct it)
   static T* malloc()
   {
-    T * ret =  static_cast<T *>(SCALABLE ? scalable_malloc(sizeof(T)) : std::malloc(sizeof(T)));
+    T * ret = malloc_api();
     new (ret) T();
     return ret;
   }
@@ -84,7 +106,7 @@ public:
   template<typename... Args>
   static T* malloc(Args&&... args)
   {
-    T * ret =  static_cast<T *>(SCALABLE ? scalable_malloc(sizeof(T)) : std::malloc(sizeof(T)));
+    T * ret =  malloc_api();
     new (ret) T(std::forward<Args>(args)...);
     return ret;
   }

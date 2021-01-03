@@ -21,10 +21,12 @@
 #include <stdexcept>
 #include "depspawn/depspawn_utils.h"
 #include "depspawn/depspawn.h"
+#ifdef DEPSPAWN_USE_TBB
+#include <tbb/task_scheduler_init.h>
+#endif
 #ifdef DEPSPAWN_PROFILE
 #include <chrono>
 #endif
-
 
 
 namespace {
@@ -81,9 +83,11 @@ namespace {
   /// Tries to run the Workitem work
   ///
   /// This only happens if it is in Ready state
-  /// \return wheter it could actually run the Workitem
+  /// \return whether it could actually run the Workitem
+  /// \todo Do actual try on w when not DEPSPAWN_USE_TBB
   bool try_to_run(Workitem * w)
   {
+#ifdef DEPSPAWN_USE_TBB
     bool success = false;
     if ( w->status == Workitem::Status_t::Ready ) {
       AbstractBoxedFunction * const stolen_abf = w->steal();
@@ -95,6 +99,9 @@ namespace {
       }
     }
     return success;
+#else
+    return TP->try_run(); // By now we just try to run the oldest pending task
+#endif
   }
   
   DEPSPAWN_PROFILEDEFINITION(
@@ -151,7 +158,12 @@ namespace depspawn {
   
   namespace internal {
 
+#ifdef DEPSPAWN_USE_TBB
     tbb::task* volatile master_task {nullptr};
+#else
+    TaskPool * volatile TP {nullptr};
+#endif
+
     DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father {nullptr};
 
     /// \brief Number of threads in use
@@ -179,7 +191,6 @@ namespace depspawn {
     
 #ifdef DEPSPAWN_FAST_START
     // They are exportable for derived libraries (could be static for DepSpawn itself)
-    static constexpr int FAST_ARR_SZ  = 16;
     int FAST_THRESHOLD;
 #endif
 
@@ -214,29 +225,73 @@ namespace depspawn {
     }
     
     EnvInitClass StaticEnvInitClassObject;
-    
+
+  void TaskPool::Task::run()
+  {
+    if (ctx_) {
+      ctx_->status = Workitem::Status_t::Running;
+
+      Workitem *& ref_father_lcl = enum_thr_spec_father;
+      ref_father_lcl = ctx_;
+
+      func_();
+
+      //BBF: in case father thread runs a task.
+      //Should be farther checked
+      ref_father_lcl = nullptr;
+
+      ctx_->finish_execution();
+    } else {
+      func_();
+    }
+  }
+
     void start_master()
     {
       worklist = nullptr;
       eraser_assigned = false;
       ObserversAtWork = 0;
+      enum_thr_spec_father = nullptr;
+
+#ifdef DEPSPAWN_USE_TBB
       master_task = new (tbb::task::allocate_root()) tbb::empty_task;
       master_task->set_ref_count(1);
-      enum_thr_spec_father = nullptr;
+#else
+      if (TP == nullptr) {
+        TP = new TaskPool(-1, true);
+        Nthreads = TP->nthreads() + 1;
+      } else {
+        assert(!TP->is_running());
+        TP->launch_threads();
+      }
+#endif
     }
-    
+
+
     void common_wait_for(arg_info *pargs, int nargs)
     {
+      internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
+
+#ifdef DEPSPAWN_USE_TBB
       tbb::task* const dummy = new (tbb::task::allocate_root()) tbb::empty_task;
       dummy->set_ref_count(1 + 1);
-      
-      internal::Workitem* w = internal::Workitem::Pool.malloc(pargs, nargs);
+
       w->insert_in_worklist(new (dummy->allocate_child()) internal::runner<decltype(FV)>(w, FV));
-      
+
       dummy->wait_for_all();
       dummy->destroy(*dummy);
+#else
+      volatile bool was_run = false;
+
+      w->insert_in_worklist(TP->build_task(w, [&was_run](){ was_run = true; }));
+      
+      while (!was_run) {
+        TP->try_run();
+      }
+#endif
+
     }
-    
+
     ///TODO: This implementation is ONLY for general memory areas. Arrays are inserted replicated
     void arg_info::solve_overlap(arg_info *other)
     { size_t tmp_size;
@@ -413,7 +468,7 @@ namespace depspawn {
       return arg_w == nullptr;
     }
     
-    
+#ifdef DEPSPAWN_USE_TBB
     void AbstractBoxedFunction::run_in_env(bool from_wait) {
       
       Workitem *& ref_father_lcl = enum_thr_spec_father;
@@ -437,7 +492,8 @@ namespace depspawn {
       ref_father_lcl = cur_father_lcl;
       
     }
-    
+#endif
+
 DEPSPAWN_DEBUGDEFINITION(
     /// Internal debugging purposes
     //  expr -a 0 -- depspawn::internal::debug_follow_list(worklist.my_storage.my_value, false)
@@ -471,11 +527,15 @@ DEPSPAWN_DEBUGDEFINITION(
   void wait_for_all()
   { Workitem *p, *dp;
 
+#ifdef DEPSPAWN_USE_TBB
     if(internal::master_task) {
       internal::master_task->wait_for_all();
       tbb::task::destroy(*internal::master_task);
       internal::master_task = nullptr;
-      
+#else
+    if(TP) {
+      TP->wait(false);
+#endif
       if(worklist != nullptr) {
         for(p = worklist; p; p = p->next) {
           dp = p;
@@ -487,6 +547,7 @@ DEPSPAWN_DEBUGDEFINITION(
       
       DEPSPAWN_PROFILEACTION(profile_display_results(true));
     }
+
 
   }
   
@@ -519,23 +580,32 @@ DEPSPAWN_DEBUGDEFINITION(
 #endif
   }
 
-  void set_threads(int nthreads, tbb::stack_size_type thread_stack_size)
-  { static tbb::task_scheduler_init * Scheduler = nullptr;
-    
-    if (nthreads == tbb::task_scheduler_init::deferred) {
-      throw std::invalid_argument("set_threads(tbb::task_scheduler_init::deferred) unsupported");
-    }
-    
+  void set_threads(int nthreads, size_t thread_stack_size)
+  {
+#ifdef DEPSPAWN_USE_TBB
+    static tbb::task_scheduler_init * Scheduler = nullptr;
+
     if (Scheduler != nullptr) {
       delete Scheduler;
     }
     
     Scheduler = new tbb::task_scheduler_init(nthreads, thread_stack_size);
     assert(Scheduler != nullptr);
-
-    if (nthreads == tbb::task_scheduler_init::automatic) {
+    
+    if (nthreads == -1) {
       nthreads = std::thread::hardware_concurrency(); //Reasonable estimation
     }
+
+#else
+    if (TP != nullptr) {
+      TP->wait(false);
+      delete TP;
+    }
+    
+    TP = new TaskPool((nthreads < 0) ? nthreads : (nthreads - 1), false);
+    assert(TP != nullptr);
+    nthreads = TP->nthreads() + 1;
+#endif
 
     Nthreads = nthreads;
     

@@ -89,15 +89,21 @@ namespace depspawn {
       /// calls this function, after an atomic decenment zeroes ndependencies
       void post() {
         status = Status_t::Ready;
+#ifdef DEPSPAWN_USE_TBB
         if (EnqueueTasks) {
           tbb::task::enqueue((tbb::task&)*task);
         } else {
           master_task->spawn((tbb::task&)*task);
         }
+#else
+        TP->enqueue((AbstractRunner *)task);
+#endif
       }
-      
+
+#ifdef DEPSPAWN_USE_TBB
       /// Steal the work of this ready Workitem or return nullptr if unsuccessful
       AbstractBoxedFunction * steal();
+#endif
 
       static void Clean_worklist(Workitem *worklist_wait_hint = nullptr);
 
