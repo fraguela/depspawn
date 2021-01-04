@@ -39,6 +39,7 @@ void display()
 {
   LOG("Current x =" << x << " y = " << y);
 }
+
 /// Adds n units and requires s seconds
 void add(int &i, int n, float s) {
   LOG("f  begin: " << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() << " with " << name(i) << '=' << i);

@@ -4,10 +4,11 @@
 /// \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
 ///
 
-
 #ifndef __TASKPOOL_H_
 #define __TASKPOOL_H_
 
+#include <atomic>
+#include <cassert>
 #include <boost/lockfree/queue.hpp>
 #include "ThreadPool.h"
 #include "LinkedListPool.h"
@@ -17,9 +18,6 @@ namespace depspawn {
 namespace internal {
 
 struct Workitem;
-
-/// Pointer to the father of the task currently being executed, or nullptr if it is the root
-extern DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father;
 
 class TaskPool {
 
@@ -62,7 +60,8 @@ private:
   boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> queue_;
   LinkedListPool<Task, false> task_pool_;
   volatile bool finish_;
-  
+  std::atomic<int> busy_threads_; ///< Becomes 0 only when all the pool threads run out of work
+
   void run(Task * const p)
   {
     p->run();
@@ -74,7 +73,12 @@ private:
   {
     while (!finish_) {
       empty_queue();
+      busy_threads_.fetch_sub(1);
+      while(!finish_ && queue_.empty()) {}
+      busy_threads_.fetch_add(1);
     }
+
+    busy_threads_.fetch_sub(1);
   }
 
 public:
@@ -93,7 +97,8 @@ public:
   thread_pool_{nthreads},
   queue_{static_cast<size_t>(thread_pool_.nthreads() * avg_max_tasks_per_thread)},
   task_pool_{thread_pool_.nthreads() * Default_Max_Tasks_Per_Thread},
-  finish_{true}
+  finish_{true},
+  busy_threads_{0}
   {
     thread_pool_.setFunction(&TaskPool::main, this);
 
@@ -113,6 +118,7 @@ public:
   void launch_threads()
   {
     if(finish_) {
+      busy_threads_.store(thread_pool_.nthreads());
       finish_ = false;
       thread_pool_.launch_theads();
     }
@@ -120,17 +126,17 @@ public:
 
   /// Return the number of threads in the pool
   int nthreads() const noexcept { return thread_pool_.nthreads(); }
-  
+
   /// \brief Tries to run one pending task, if available
   /// \return Whether any task was actually run
   bool try_run()
   { Task *p;
-    
+
     const bool ret = queue_.pop(p);
     if (ret) {
       run(p);
     }
-    
+
     return ret;
   }
 
@@ -170,7 +176,10 @@ public:
   ///                         Otherwise, they sleep until launch_theads() is invoked
   void wait(const bool relaunch_threads = true)
   {
-    empty_queue();
+    do {
+      empty_queue();
+    } while(busy_threads_.load(std::memory_order_relaxed));
+
     finish_ = true;
     thread_pool_.wait();
 
