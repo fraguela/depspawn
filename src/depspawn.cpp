@@ -232,13 +232,12 @@ namespace depspawn {
       ctx_->status = Workitem::Status_t::Running;
 
       Workitem *& ref_father_lcl = enum_thr_spec_father;
+      Workitem * const prev_enum_thr_spec_father = ref_father_lcl;
       ref_father_lcl = ctx_;
 
       func_();
 
-      //BBF: in case father thread runs a task.
-      //Should be farther checked
-      ref_father_lcl = nullptr;
+      ref_father_lcl = prev_enum_thr_spec_father;
 
       ctx_->finish_execution();
     } else {
@@ -555,7 +554,7 @@ DEPSPAWN_DEBUGDEFINITION(
   {
     internal::Workitem * cur_father = enum_thr_spec_father;
     
-    //printf(" WFS %s\n", cur_father == nullptr ? "0" : "nested");
+    //fprintf(stderr, "WFS %s\n", (cur_father == nullptr) ? "0" : "nested");
     
     if (cur_father == nullptr) {
       wait_for_all();
