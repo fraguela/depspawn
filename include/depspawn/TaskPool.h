@@ -171,6 +171,20 @@ public:
     while (try_run()) { }
   }
 
+  /// Runs a parallel loop in the pool
+  template<typename Index, typename F>
+  void parallel_for(Index begin, Index end, Index step, const F& f, const bool relaunch_threads = true)
+  {
+    this->launch_threads();
+
+    while (begin < end) {
+      this->enqueue(f, begin);
+      begin += step;
+    }
+
+    this->wait(relaunch_threads);
+  }
+
   /// \brief Active wait until all tasks complete
   /// \param relaunch_threads if true, the threads are relaunched after the wait.
   ///                         Otherwise, they sleep until launch_theads() is invoked

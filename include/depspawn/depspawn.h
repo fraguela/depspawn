@@ -597,7 +597,7 @@ extern void set_task_queue_limit(int limit) noexcept;
 ///or -1 if DepSpawn was not compiled with DEPSPAWN_FAST_START on.
 extern int get_task_queue_limit() noexcept;
 
-/// Specify the number of threads and stack size per thread to use.
+/// Specify the number of threads to use.
 ///
 /// If the library has been compiled with DEPSPAWN_FAST_START, it also invokes
 /// set_task_queue_limit() asking for two ready tasks per thread, which is the default.
@@ -605,9 +605,7 @@ extern int get_task_queue_limit() noexcept;
 /// \param nthreads Number of threads to use. The value -1 uses one
 ///                 thread per hardware thread available, which is the default
 ///                 behavior when the argument is not specified.
-/// \param thread_stack_size Stack size for each thread.
-///                 A value 0 specifies the use of the default stack size.
-extern void set_threads(int nthreads = -1, size_t thread_stack_size = 0);
+extern void set_threads(int nthreads = -1);
 
 /// Retrieve number of threads currently in use
 extern int get_num_threads() noexcept;

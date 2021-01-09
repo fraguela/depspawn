@@ -41,11 +41,11 @@ endif(${Boost_FOUND})
 #message( "CMAKE_BINARY_DIR : " ${CMAKE_BINARY_DIR} )
 #message( "CMAKE_SOURCE_DIR : " ${CMAKE_SOURCE_DIR} )
 
+option( DEPSPAWN_USE_TBB       "Rely on TBB" ON)
 option( DEPSPAWN_FAST_START    "Launcher thread executes tasks when many are enqueued" ON)
-option( DEPSPAWN_DUMMY_POOL    "Do not actually use a pool" ON)
+option( DEPSPAWN_DUMMY_POOL    "Do not actually use object pools" ON)
 option( DEPSPAWN_SCALABLE_POOL "Use tbb::scalable_malloc/free instead of std::malloc/free" OFF)
 option( DEPSPAWN_PROFILE       "Do profiling" OFF)
-option( DEPSPAWN_USE_TBB       "Rely on TBB" ON)
 
 if(DEPSPAWN_FAST_START)
 # Only affects .cpp files, so no need to fix in headers

@@ -7,15 +7,15 @@ These instructions can also be found in the library [documentation](http://fragu
 
 
  * A C++ compiler that supports C++11
- * [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
  * [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
+ *  Optional: [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
  * Optional: [Boost](http://www.boost.org) v1.48 or above (if not available DepSpawn will install the subset it uses)
  * Optional: [Doxygen](http://www.doxygen.org) for building its documentation
 
 ### Setting up Intel TBB </p>
 
 
-Intel TBB must be configured before building or using DepSpawn. This requires setting up some environment variables both to be compiled and to be used by an application during its execution. This usually requires executing the script 
+If one plans to use Intel TBB as backend for must DepSpawn, it be configured before building or using DepSpawn. This requires setting up some environment variables both to be compiled and to be used by an application during its execution. This usually requires executing the script 
  
  - `${TBBROOT}/bin/tbbvars.sh` if your shell is `bash`/`ksh`, or
  - `${TBBROOT}/bin/tbbvars.csh` if your shell is `csh`
@@ -67,6 +67,7 @@ Intel TBB must be configured before building or using DepSpawn. This requires se
 	- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
 		
 	 The variables that begin with `DEPSPAWN` change internal behaviors in the runtime of the library. Thus in principle they are of interest only to the developers of the library, although users can play with them to see how they impact in their applications. They are:
+	- `DEPSPAWN_USE_TBB` : Controls whether to use as backend  the Intel TBB, if `ON`, or a C++ thread pool, otherwise.
 	- `DEPSPAWN_DUMMY_POOL` : Boolean that if `ON` turns off the usage of pools by the library to manage the memory of its internal objects.
     - `DEPSPAWN_FAST_START` : If this boolean is `ON`, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
     - `DEPSPAWN_PROFILE` : When this boolean is `ON` the library gathers statistics about its internal operations.

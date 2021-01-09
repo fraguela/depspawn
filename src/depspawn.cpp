@@ -21,13 +21,42 @@
 #include <stdexcept>
 #include "depspawn/depspawn_utils.h"
 #include "depspawn/depspawn.h"
-#ifdef DEPSPAWN_USE_TBB
-#include <tbb/task_scheduler_init.h>
-#endif
 #ifdef DEPSPAWN_PROFILE
 #include <chrono>
 #endif
 
+#ifdef DEPSPAWN_USE_TBB
+
+#if TBB_VERSION_MAJOR > 2019
+#warning OneTBB
+#include <tbb/global_control.h>
+
+namespace {
+  void tbb_set_threads(int nthreads) {
+    static tbb::global_control *init = nullptr;
+    if(init != nullptr) delete init;
+    if(nthreads == -1) nthreads = std::thread::hardware_concurrency();
+    init = new tbb::global_control(tbb::global_control::max_allowed_parallelism, nthreads);
+    assert(init != nullptr);
+  }
+}
+
+#else //TBB_VERSION_MAJOR > 2019
+#warning Intel TBB
+#include <tbb/task_scheduler_init.h>
+
+namespace {
+  void tbb_set_threads(int nthreads) {
+    static tbb::task_scheduler_init *init = nullptr;
+    if(init != nullptr) delete init;
+    init = new tbb::task_scheduler_init(nthreads);
+    assert(init != nullptr);
+  }
+}
+
+#endif //TBB_VERSION_MAJOR > 2019
+
+#endif //DEPSPAWN_USE_TBB
 
 namespace {
 
@@ -579,22 +608,13 @@ DEPSPAWN_DEBUGDEFINITION(
 #endif
   }
 
-  void set_threads(int nthreads, size_t thread_stack_size)
+  void set_threads(int nthreads)
   {
 #ifdef DEPSPAWN_USE_TBB
-    static tbb::task_scheduler_init * Scheduler = nullptr;
-
-    if (Scheduler != nullptr) {
-      delete Scheduler;
-    }
-    
-    Scheduler = new tbb::task_scheduler_init(nthreads, thread_stack_size);
-    assert(Scheduler != nullptr);
-    
+    tbb_set_threads(nthreads);
     if (nthreads == -1) {
       nthreads = std::thread::hardware_concurrency(); //Reasonable estimation
     }
-
 #else
     if (TP != nullptr) {
       TP->wait(false);

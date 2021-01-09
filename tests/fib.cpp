@@ -87,10 +87,10 @@ void fib_pruned(int n, size_t& r) {
   }
 }
 
-void usage()
+void usage(char *argv[])
 {
-  puts("puts [-s]equential [-p]runed [-P]ure [-T]threads=n [num] [limit]");
-  exit(0);
+  printf("%s [-s]equential [-p]runed [-P]ure [-T]hreads n [num] [limit]\n", argv[0]);
+  exit(EXIT_FAILURE);
 }
 
 void config(int argc, char *argv[])
@@ -108,11 +108,11 @@ void config(int argc, char *argv[])
         break;
       case '?':
       default:
-        usage();
+        usage(argv);
     }
   
   if(optind >= argc) {
-    usage();
+    usage(argv);
   }
   
   // optind must be < argc
