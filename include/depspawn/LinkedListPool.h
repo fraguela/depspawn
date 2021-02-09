@@ -139,14 +139,16 @@ public:
   void free(T* const datain) noexcept
   {
     datain->next = head_.load(std::memory_order_relaxed);
-    while(!head_.compare_exchange_weak(datain->next, datain));
+    //Casting useful when T derives from a type U that contains the U *next field
+    while(!head_.compare_exchange_weak((T*&)datain->next, datain));
   }
   
   /// Return a linked list of items to the pool when the end is known
   void freeLinkedList(T* const datain, T* const last_datain) noexcept
   {
     last_datain->next = head_.load(std::memory_order_relaxed);
-    while(!head_.compare_exchange_weak(last_datain->next, datain));
+    //Casting useful when T derives from a type U that contains the U *next field
+    while(!head_.compare_exchange_weak((T*&)last_datain->next, datain));
   }
   
   /// Return a linked list of items to the pool when the end is unknown
