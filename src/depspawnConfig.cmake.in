@@ -5,7 +5,7 @@ option( DEPSPAWN_PROFILE    "Do profiling" @DEPSPAWN_PROFILE@ )
 find_package( Boost )
 
 if(${Boost_FOUND})
-  include_directories( ${Boost_INCLUDE_DIR} )
+  include_directories( ${Boost_INCLUDE_DIRS} )
 endif(${Boost_FOUND})
 
 
