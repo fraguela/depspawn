@@ -95,8 +95,8 @@ public:
   /// \param launch Whether to launch inmediately the threads to execution. True by default
   TaskPool(const int nthreads, const int avg_max_tasks_per_thread = Default_Max_Tasks_Per_Thread, const bool launch = true) :
   thread_pool_{nthreads},
-  queue_{static_cast<size_t>(thread_pool_.nthreads() * avg_max_tasks_per_thread)},
-  task_pool_{thread_pool_.nthreads() * Default_Max_Tasks_Per_Thread},
+  queue_{static_cast<size_t>(thread_pool_.nthreads() * avg_max_tasks_per_thread + !thread_pool_.nthreads())},
+  task_pool_{thread_pool_.nthreads() * Default_Max_Tasks_Per_Thread + !thread_pool_.nthreads()},
   finish_{true},
   busy_threads_{0}
   {

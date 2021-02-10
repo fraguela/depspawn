@@ -32,7 +32,7 @@ class ThreadPool {
 
   void main()
   {
-    while (!finish_) {
+    do {
       std::unique_lock<std::mutex> my_lock(mutex_);
       while (!ready_) {
         cond_var_.wait(my_lock);
@@ -53,7 +53,7 @@ class ThreadPool {
       my_lock.unlock();
       
       //wait();
-    }
+    } while (!finish_);
   }
 
 public:

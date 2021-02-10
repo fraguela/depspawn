@@ -286,8 +286,8 @@ namespace depspawn {
       master_task->set_ref_count(1);
 #else
       if (TP == nullptr) {
-        TP = new TaskPool(-1, true);
-        Nthreads = TP->nthreads() + 1;
+        TP = new TaskPool(Nthreads - 1, true);
+        assert(Nthreads == (TP->nthreads() + 1));
       } else {
         assert(!TP->is_running());
         TP->launch_threads();
@@ -617,13 +617,14 @@ DEPSPAWN_DEBUGDEFINITION(
     }
 #else
     if (TP != nullptr) {
-      TP->wait(false);
-      delete TP;
+      delete TP; // implies TP->wait(false)
+      TP = nullptr;
     }
     
-    TP = new TaskPool((nthreads < 0) ? nthreads : (nthreads - 1), false);
-    assert(TP != nullptr);
-    nthreads = TP->nthreads() + 1;
+//    TP = new TaskPool((nthreads < 0) ? nthreads : (nthreads - 1), false);
+//    assert(TP != nullptr);
+//    nthreads = TP->nthreads() + 1;
+    nthreads = ((nthreads < 0) ? (std::thread::hardware_concurrency() + nthreads) : (nthreads - 1)) + 1;
 #endif
 
     Nthreads = nthreads;
