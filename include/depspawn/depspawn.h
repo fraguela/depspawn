@@ -599,8 +599,9 @@ extern int get_task_queue_limit() noexcept;
 
 /// Specify the number of threads to use.
 ///
-/// If the library has been compiled with DEPSPAWN_FAST_START, it also invokes
-/// set_task_queue_limit() asking for two ready tasks per thread, which is the default.
+/// If the library has been compiled with DEPSPAWN_FAST_START and the task queue limit has
+/// not been set with set_task_queue_limit() or the environment varible DEPSPAWN_TASK_QUEUE_LIMIT,
+/// this function asks for two ready tasks per thread as default.
 ///
 /// \param nthreads Number of threads to use. The value -1 uses one
 ///                 thread per hardware thread available, which is the default

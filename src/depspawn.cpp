@@ -221,6 +221,7 @@ namespace depspawn {
 #ifdef DEPSPAWN_FAST_START
     // They are exportable for derived libraries (could be static for DepSpawn itself)
     int FAST_THRESHOLD;
+    bool FAST_THRESHOLD_ExplicitlySet = false;
 #endif
 
     /// The construction of an object of this class initializes DepSpawn
@@ -232,7 +233,7 @@ namespace depspawn {
     EnvInitClass::EnvInitClass()
     {
       const char *env_var = getenv("DEPSPAWN_NUM_THREADS");
-      Nthreads = (env_var == nullptr) ? std::thread::hardware_concurrency() : atoi(env_var);
+      Nthreads = (env_var == nullptr) ? std::thread::hardware_concurrency() : strtol(env_var, 0, 0);
       if (Nthreads <= 0) {
         throw std::invalid_argument("Invalid DEPSPAWN_NUM_THREADS");
       }
@@ -246,7 +247,8 @@ namespace depspawn {
 
 #ifdef DEPSPAWN_FAST_START
       env_var = getenv("DEPSPAWN_TASK_QUEUE_LIMIT");
-      FAST_THRESHOLD = (env_var == nullptr) ? (Nthreads * 2) : atoi(env_var);
+      FAST_THRESHOLD_ExplicitlySet = (env_var != nullptr);
+      FAST_THRESHOLD = FAST_THRESHOLD_ExplicitlySet ? strtol(env_var, 0, 0) : (Nthreads * 2);
       if (FAST_THRESHOLD < 0) {
         throw std::invalid_argument("Invalid DEPSPAWN_TASK_QUEUE_LIMIT");
       }
@@ -596,6 +598,7 @@ DEPSPAWN_DEBUGDEFINITION(
   {
 #ifdef DEPSPAWN_FAST_START
     internal::FAST_THRESHOLD = limit;
+    FAST_THRESHOLD_ExplicitlySet = true;
 #endif
   }
   
@@ -629,7 +632,11 @@ DEPSPAWN_DEBUGDEFINITION(
 
     Nthreads = nthreads;
     
-    set_task_queue_limit(2 * nthreads); //Heuristic
+#ifdef DEPSPAWN_FAST_START
+    if (!FAST_THRESHOLD_ExplicitlySet) {
+      FAST_THRESHOLD = 2 * nthreads; //Heuristic
+    }
+#endif
   }
 
   int get_num_threads() noexcept
