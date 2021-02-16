@@ -68,7 +68,7 @@ class LinkedListPool {
   const int chunkSize_;   ///< How many holders to allocate each time
   const int minTSize_;    ///< Space allocated for each object
   std::atomic<T *> head_; ///< Current head of the pool
-  std::atomic_flag pool_mutex_; ///< mutex for global critical sections in the pool (only in allocate)
+  std::atomic_flag pool_mutex_ = ATOMIC_FLAG_INIT; ///< mutex for global critical sections in the pool (only in allocate)
   
   /// Allocate a new chunk of chunkSize_ elements for the pool
   void allocate() {
@@ -121,8 +121,7 @@ public:
   LinkedListPool(const int chunkSize = 1, const size_t min_t_size = sizeof(T)) :
   chunkSize_{(chunkSize < 1) ? 1 : chunkSize},
   minTSize_{static_cast<int>((sizeof(T) > min_t_size) ? sizeof(T) : min_t_size)},
-  head_{nullptr},
-  pool_mutex_{ATOMIC_FLAG_INIT}
+  head_{nullptr}
   {
     allocate();
   }

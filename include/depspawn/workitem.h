@@ -44,7 +44,7 @@ namespace depspawn {
       
       volatile Status_t::internal_Status_t status;  ///< State of this Workitem
       short int optFlags_;
-      std::atomic_flag deps_mutex_;     ///< Mutex for critical section for insertion in the list of dependencies
+      std::atomic_flag deps_mutex_ = ATOMIC_FLAG_INIT; ///< Mutex for critical section for insertion in the list of dependencies
       std::atomic<char> guard_;         ///< Critical for the correct control of steals
       char nargs_;
       

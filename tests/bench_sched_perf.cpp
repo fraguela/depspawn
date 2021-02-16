@@ -23,15 +23,8 @@ using namespace depspawn;
 
 // USE_TBB differs from DEPSPAWN_USE_TBB as it controls the parallel baseline, not depspawn
 #ifdef USE_TBB
-
 #include <tbb/task_group.h>
 #include <tbb/parallel_for.h>
-
-#else
-
-#include "depspawn/TaskPool.h"
-internal::TaskPool *TP;
-
 #endif
 
 
@@ -107,11 +100,13 @@ double bench_serial_time(const size_t ntasks, int nreps)
         exit(EXIT_FAILURE);
       }
 #else
-      TP->launch_threads();
-      for (size_t i = 0; i < ntasks; i++) {
-        TP->enqueue([&, i] { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); });
-      }
-      TP->wait(false);
+      const auto task = [&](size_t i) { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); };
+      get_task_pool().parallel_for((size_t)0, ntasks, (size_t)1, task, false);
+//      TP->launch_threads();
+//      for (size_t i = 0; i < ntasks; i++) {
+//        TP->enqueue([&, i] { seq_mult(Destination[UseSameTile ? 0 : i], Input1, Input2); });
+//      }
+//      TP->wait(false);
 #endif
     } else {
       for (size_t i = 0; i < ntasks; i++) {
@@ -255,15 +250,22 @@ void process_arguments(int argc, char **argv)
   }
 }
 
+/*
+void test_TP(const char *msg)
+{
+  std::cout << "DepSpawn pool " << msg
+            << " threads=" << get_task_pool().nthreads()
+            << " running=" << get_task_pool().is_running() << '\n';
+}
+*/
+
 int main(int argc, char **argv)
 {
   process_arguments(argc, argv);
   
+  //test_TP("before set_threads");
   set_threads(Nthreads);
-
-#ifndef USE_TBB
-  TP = new internal::TaskPool(Nthreads, 8, false);
-#endif
+  //test_TP("after set_threads");
   
   if (Queue_limit >= 0) {
     set_task_queue_limit(Queue_limit);
@@ -287,11 +289,12 @@ int main(int argc, char **argv)
     // This is to try to build the threads before the first test; just in case
     tbb::parallel_for(size_t(0), MAX_NTASKS, task);
 #else
-    TP->launch_threads();
-    for (size_t i = 0; i < MAX_NTASKS; i++) {
-      TP->enqueue(task, i);
-    }
-    TP->wait(false);
+    get_task_pool().parallel_for((size_t)0, MAX_NTASKS, (size_t)1, task, false);
+//    TP->launch_threads();
+//    for (size_t i = 0; i < MAX_NTASKS; i++) {
+//      TP->enqueue(task, i);
+//    }
+//    TP->wait(false);
 #endif
 
     //1-time runtime preheat (for memory pools)
@@ -326,6 +329,8 @@ int main(int argc, char **argv)
     //std::cout << '%' << tile_sz;
     std::cout << std::endl;
   }
+  
+  //test_TP("before exiting");
   
   return 0;
 }

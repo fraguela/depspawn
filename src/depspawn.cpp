@@ -28,7 +28,7 @@
 #ifdef DEPSPAWN_USE_TBB
 
 #if TBB_VERSION_MAJOR > 2019
-#warning OneTBB
+#warning OneTBB backend
 #include <tbb/global_control.h>
 
 namespace {
@@ -42,7 +42,7 @@ namespace {
 }
 
 #else //TBB_VERSION_MAJOR > 2019
-#warning Intel TBB
+#warning Intel TBB backend
 #include <tbb/task_scheduler_init.h>
 
 namespace {
@@ -288,8 +288,7 @@ namespace depspawn {
       master_task->set_ref_count(1);
 #else
       if (TP == nullptr) {
-        TP = new TaskPool(Nthreads - 1, true);
-        assert(Nthreads == (TP->nthreads() + 1));
+        get_task_pool();
       } else {
         assert(!TP->is_running());
         TP->launch_threads();
@@ -642,6 +641,20 @@ DEPSPAWN_DEBUGDEFINITION(
   int get_num_threads() noexcept
   {
     return Nthreads;
+  }
+
+  TaskPool& get_task_pool()
+  {
+#ifdef DEPSPAWN_USE_TBB
+    static TaskPool Null_TP(0, 0, false);
+    return Null_TP;
+#else
+    if(TP == nullptr) {
+      TP = new TaskPool(Nthreads - 1, true);
+      assert(Nthreads == (TP->nthreads() + 1));
+    }
+    return *TP;
+#endif
   }
 
   Observer::Observer(bool priority) :

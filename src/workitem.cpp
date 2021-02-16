@@ -19,7 +19,7 @@ namespace depspawn {
   namespace internal {
     
     Workitem::Workitem(arg_info *iargs, int nargs) :
-    status(Status_t::Filling), optFlags_(0), deps_mutex_(ATOMIC_FLAG_INIT),
+    status(Status_t::Filling), optFlags_(0),
     guard_(0), nargs_(static_cast<char>(nargs)),
     args(iargs), next(nullptr), father(enum_thr_spec_father),
     ndependencies(0), nchildren(1),

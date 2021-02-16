@@ -46,7 +46,7 @@
 #include <tbb/task.h>
 #endif
 
-// It is also included when DEPSPAWN_USE_TBB for the sake of TaskPool::Task::run and bench_sched_perf
+// Also included when DEPSPAWN_USE_TBB for the sake of get_task_pool() and TaskPool::Task::run
 #include "depspawn/TaskPool.h"
 
 
@@ -401,8 +401,6 @@ namespace depspawn {
     /// Whether tasks are normally spawned (false) or enqueued (true)
     extern bool EnqueueTasks;
 
-    
-    
   } //namespace  internal
 
 } //namespace depspawn
@@ -610,6 +608,10 @@ extern void set_threads(int nthreads = -1);
 
 /// Retrieve number of threads currently in use
 extern int get_num_threads() noexcept;
+
+/// Obtain non-TBB DepSpawn task pool. If not initialized, it builds it in running state
+/// When DEPSPAWN_USE_TBB is defined, the returned task pool has 0 threads and does not run
+extern internal::TaskPool& get_task_pool();
 
 #ifdef SEQUENTIAL_DEPSPAWN
 
