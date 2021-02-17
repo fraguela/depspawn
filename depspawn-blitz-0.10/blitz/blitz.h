@@ -137,9 +137,9 @@ BZ_NAMESPACE_END
  */
 #ifdef BZ_THREADSAFE
  #ifdef BZ_THREADSAFE_USE_TBB
-  #include "tbb/atomic.h"
+  #include <atomic>
   #define BZ_THREADSAFE_USE_ATOMIC
-  #define BZ_REFCOUNT_DECLARE(name) tbb::atomic<int> name;
+  #define BZ_REFCOUNT_DECLARE(name) std::atomic<int> name;
  #else
   #define BZ_REFCOUNT_DECLARE(name) volatile int name;
   #if defined(_REENTRANT)
