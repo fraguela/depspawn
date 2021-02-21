@@ -1,3 +1,10 @@
+/*
+ DepSpawn: Data Dependent Spawn library
+ Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ 
+ Distributed under the MIT License. (See accompanying file LICENSE)
+*/
+
 ///
 /// \file     ThreadPool.h
 /// \brief    Provides a resizeable reusable pool of threads

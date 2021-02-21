@@ -1,3 +1,10 @@
+/*
+ DepSpawn: Data Dependent Spawn library
+ Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ 
+ Distributed under the MIT License. (See accompanying file LICENSE)
+*/
+
 ///
 /// \file     TaskPool.h
 /// \brief    Pool of threads that execute tasks from a shared pool in FIFO
@@ -126,6 +133,11 @@ public:
 
   /// Return the number of threads in the pool
   int nthreads() const noexcept { return thread_pool_.nthreads(); }
+
+  /// \brief Returns the number of busy threads in the pool
+  ///
+  /// It is not exactly the number of threads making useful work because they can also be contending for work
+  int nbusy_threads() const noexcept { return busy_threads_.load(std::memory_order_relaxed); }
 
   /// \brief Tries to run one pending task, if available
   /// \return Whether any task was actually run
