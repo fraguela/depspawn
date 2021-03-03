@@ -120,7 +120,7 @@ public:
   
   /// Define function to be run by the threads with arguments
   template<class F, class... Args>
-  void setFunction(F&& f, Args&&... args)
+  void set_function(F&& f, Args&&... args)
   {
     func_ = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
   }

@@ -15,10 +15,9 @@
 #define __TASKPOOL_H_
 
 #include <atomic>
-#include <cassert>
 #include <boost/lockfree/queue.hpp>
-#include "ThreadPool.h"
-#include "LinkedListPool.h"
+#include "depspawn/ThreadPool.h"
+#include "depspawn/LinkedListPool.h"
 
 namespace depspawn {
 
@@ -66,8 +65,9 @@ private:
   ThreadPool thread_pool_;
   boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> queue_;
   LinkedListPool<Task, false> task_pool_;
-  volatile bool finish_;
+  volatile bool finish_;          ///< Whether wait for task pool to finish has been requested
   std::atomic<int> busy_threads_; ///< Becomes 0 only when all the pool threads run out of work
+  std::function<void()> idle_func_; ///< Function to run when there are no tasks
 
   void run(Task * const p)
   {
@@ -81,7 +81,11 @@ private:
     while (!finish_) {
       empty_queue();
       busy_threads_.fetch_sub(1);
-      while(!finish_ && queue_.empty()) {}
+      while(!finish_ && queue_.empty()) {
+        if (idle_func_) {
+          idle_func_();
+        }
+      }
       busy_threads_.fetch_add(1);
     }
 
@@ -107,7 +111,7 @@ public:
   finish_{true},
   busy_threads_{0}
   {
-    thread_pool_.setFunction(&TaskPool::main, this);
+    thread_pool_.set_function(&TaskPool::main, this);
 
     if(launch) {
       launch_threads();
@@ -117,6 +121,14 @@ public:
   TaskPool(const int nthreads, const bool launch) :
   TaskPool(nthreads, Default_Max_Tasks_Per_Thread, launch)
   { }
+
+  /// \brief Function to run while a thread is idle
+  /// \internal Do not change while the pool is active
+  template<typename F>
+  void set_idle_function(const F& f) {
+    assert(finish_);
+    idle_func_ = f;
+  }
 
   /// Return whether the pool threads are currently running
   bool is_running() const noexcept { return !finish_; }
