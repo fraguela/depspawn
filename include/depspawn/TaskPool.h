@@ -69,11 +69,16 @@ private:
   std::atomic<int> busy_threads_; ///< Becomes 0 only when all the pool threads run out of work
   std::function<void()> idle_func_; ///< Function to run when there are no tasks
 
+  void free(Task * const p)
+  {
+    p->~Task();
+    task_pool_.free(p);
+  }
+
   void run(Task * const p)
   {
     p->run();
-    p->~Task();
-    task_pool_.free(p);
+    free(p);
   }
 
   void main()
@@ -189,6 +194,26 @@ public:
     }
   }
 
+  /// Tries to enqueue a task for running a function with a series of arguments
+  /// and returns whether the enqueue was successfull
+  template<class F, class... Args>
+  bool try_enqueue(F&& f, Args&&... args)
+  {
+    Task * const ptask = build_task(nullptr, std::forward<F>(f), std::forward<Args>(args)...);
+    const bool ret = try_enqueue(ptask);
+    if (!ret) {
+      free(ptask);
+    }
+    return ret;
+  }
+  
+  /// Tries to enqueue a task and returns whether the enqueue was successfull
+  /// @internal If unsuccessful the user is responsible for managing the task
+  bool try_enqueue(Task * const task_ptr)
+  {
+    return queue_.bounded_push(task_ptr);
+  }
+  
   /// Works until there are no pending tasks, although they can be still in process
   void empty_queue()
   {

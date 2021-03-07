@@ -33,15 +33,6 @@
 #endif
 #endif
 
-#if defined(__GNUC__) || defined(__INTEL_COMPILER)
-#define DEPSPAWN_THREADLOCAL __thread
-#elif defined(_MSC_VER)
-#define DEPSPAWN_THREADLOCAL __declspec(thread)
-#else
-#define DEPSPAWN_THREADLOCAL thread_local
-#endif
-
-
 #ifdef DEPSPAWN_USE_TBB
 #include <tbb/task.h>
 #endif
@@ -413,7 +404,7 @@ namespace depspawn {
   namespace internal {
   
     /// Pointer to the father of the task currently being executed, or nullptr if it is the root
-    extern DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father;
+    extern thread_local Workitem * enum_thr_spec_father;
 
     /// Initializes the DepSpawn-specific global variables for a parallel session
     extern void start_master();

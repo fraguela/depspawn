@@ -193,7 +193,7 @@ namespace depspawn {
     TaskPool * volatile TP {nullptr};
 #endif
 
-    DEPSPAWN_THREADLOCAL Workitem * enum_thr_spec_father {nullptr};
+    thread_local Workitem * enum_thr_spec_father {nullptr};
 
     /// \brief Number of threads in use
     ///
