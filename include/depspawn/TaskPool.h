@@ -220,7 +220,8 @@ public:
     while (try_run()) { }
   }
 
-  /// Runs a parallel loop in the pool
+  /// Runs a parallel loop in the pool and waits for every task to finish.
+  /// Should only be used at top level
   template<typename Index, typename F>
   void parallel_for(Index begin, Index end, Index step, const F& f, const bool relaunch_threads = true)
   {
@@ -232,6 +233,23 @@ public:
     }
 
     this->wait(relaunch_threads);
+  }
+
+  /// Runs a parallel loop in the pool and waits for its top-level children to finish execution
+  template<typename Index, typename F>
+  void soft_parallel_for(Index begin, Index end, Index step, const F& f)
+  { std::atomic<Index> n_tasks {((end - begin) + (step - 1)) / step};
+
+    const auto my_f = [&f, &n_tasks](Index x) { f(x); n_tasks.fetch_sub(1); };
+
+    while (begin < end) {
+      this->enqueue(my_f, begin);
+      begin += step;
+    }
+
+    while (n_tasks.load()) {
+      try_run();
+    }
   }
 
   /// \brief Active wait until all tasks complete
