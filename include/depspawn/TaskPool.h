@@ -63,7 +63,9 @@ class TaskPool {
 private:
   
   ThreadPool thread_pool_;
+  const size_t queue_size_;
   boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> queue_;
+  boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> hp_queue_;
   LinkedListPool<Task, false> task_pool_;
   volatile bool finish_;          ///< Whether wait for task pool to finish has been requested
   std::atomic<int> busy_threads_; ///< Becomes 0 only when all the pool threads run out of work
@@ -86,7 +88,7 @@ private:
     while (!finish_) {
       empty_queue();
       busy_threads_.fetch_sub(1);
-      while(!finish_ && queue_.empty()) {
+      while(!finish_ && empty()) {
         if (idle_func_) {
           idle_func_();
         }
@@ -95,6 +97,47 @@ private:
     }
 
     busy_threads_.fetch_sub(1);
+  }
+
+  template<typename Index, typename F>
+  void common_parallel_for(Index begin, Index end, Index step, const F& f, const bool relaunch_threads, const bool is_hp)
+  {
+    this->launch_threads();
+
+    while (begin < end) {
+      if (is_hp) {
+        this->hp_enqueue(f, begin);
+      } else {
+        this->enqueue(f, begin);
+      }
+      begin += step;
+    }
+
+    this->wait(relaunch_threads);
+  }
+
+  template<typename Index, typename F>
+  void common_soft_parallel_for(Index begin, Index end, Index step, const F& f, const bool is_hp)
+  { std::atomic<Index> n_tasks {((end - begin) + (step - 1)) / step};
+
+    const auto my_f = [&f, &n_tasks](Index x) { f(x); n_tasks.fetch_sub(1); };
+
+    while (begin < end) {
+      if (is_hp) {
+        this->hp_enqueue(my_f, begin);
+      } else {
+        this->enqueue(my_f, begin);
+      }
+      begin += step;
+    }
+
+    while (n_tasks.load()) {
+      if (is_hp) {
+        hp_try_run();
+      } else {
+        try_run();
+      }
+    }
   }
 
 public:
@@ -111,7 +154,9 @@ public:
   /// \param launch Whether to launch inmediately the threads to execution. True by default
   TaskPool(const int nthreads, const int avg_max_tasks_per_thread = Default_Max_Tasks_Per_Thread, const bool launch = true) :
   thread_pool_{nthreads},
-  queue_{static_cast<size_t>(thread_pool_.nthreads() * avg_max_tasks_per_thread + !thread_pool_.nthreads())},
+  queue_size_{static_cast<size_t>(thread_pool_.nthreads() * avg_max_tasks_per_thread + !thread_pool_.nthreads())},
+  queue_{queue_size_},
+  hp_queue_{queue_size_},
   task_pool_{thread_pool_.nthreads() * Default_Max_Tasks_Per_Thread + !thread_pool_.nthreads()},
   finish_{true},
   busy_threads_{0}
@@ -134,6 +179,11 @@ public:
     assert(finish_);
     idle_func_ = f;
   }
+
+  size_t queue_size() const noexcept { return queue_size_; }
+
+  /// \brief Whether the task queue is empty. Tasks can be still under execution
+  bool empty() const noexcept { return hp_queue_.empty() && queue_.empty(); }
 
   /// Return whether the pool threads are currently running
   bool is_running() const noexcept { return !finish_; }
@@ -161,11 +211,24 @@ public:
   bool try_run()
   { Task *p;
 
-    const bool ret = queue_.pop(p);
+    const bool ret = hp_queue_.pop(p) || queue_.pop(p);
     if (ret) {
       run(p);
     }
 
+    return ret;
+  }
+
+  /// \brief Tries to run one HP pending task, if available
+  /// \return Whether any task was actually run
+  bool hp_try_run()
+  { Task *p;
+    
+    const bool ret = hp_queue_.pop(p);
+    if (ret) {
+      run(p);
+    }
+    
     return ret;
   }
 
@@ -194,6 +257,24 @@ public:
     }
   }
 
+  /// Enqueues a HP task for running a function with a series of arguments
+  template<class F, class... Args>
+  void hp_enqueue(F&& f, Args&&... args)
+  {
+    hp_enqueue(build_task(nullptr, std::forward<F>(f), std::forward<Args>(args)...));
+  }
+
+  /// Enqueues a HP task for execution regardless of its number of dependencies
+  void hp_enqueue(Task * const task_ptr)
+  {
+    //automatically launching threads within enqueue is dangerous for unstructured/external tasks
+    //launch_theads();
+
+    while (!hp_queue_.bounded_push(task_ptr)) {
+      hp_try_run();
+    }
+  }
+
   /// Tries to enqueue a task for running a function with a series of arguments
   /// and returns whether the enqueue was successfull
   template<class F, class... Args>
@@ -206,14 +287,14 @@ public:
     }
     return ret;
   }
-  
+
   /// Tries to enqueue a task and returns whether the enqueue was successfull
   /// @internal If unsuccessful the user is responsible for managing the task
   bool try_enqueue(Task * const task_ptr)
   {
     return queue_.bounded_push(task_ptr);
   }
-  
+
   /// Works until there are no pending tasks, although they can be still in process
   void empty_queue()
   {
@@ -225,31 +306,30 @@ public:
   template<typename Index, typename F>
   void parallel_for(Index begin, Index end, Index step, const F& f, const bool relaunch_threads = true)
   {
-    this->launch_threads();
-
-    while (begin < end) {
-      this->enqueue(f, begin);
-      begin += step;
-    }
-
-    this->wait(relaunch_threads);
+    this->common_parallel_for(begin, end, step, f, relaunch_threads, false);
   }
 
   /// Runs a parallel loop in the pool and waits for its top-level children to finish execution
   template<typename Index, typename F>
   void soft_parallel_for(Index begin, Index end, Index step, const F& f)
-  { std::atomic<Index> n_tasks {((end - begin) + (step - 1)) / step};
+  {
+    this->common_soft_parallel_for(begin, end, step, f, false);
+  }
 
-    const auto my_f = [&f, &n_tasks](Index x) { f(x); n_tasks.fetch_sub(1); };
+  /// Runs a HP parallel loop in the pool and waits for every task,
+  /// including non-HP tasks, to finish.
+  /// Should only be used at top level
+  template<typename Index, typename F>
+  void hp_parallel_for(Index begin, Index end, Index step, const F& f, const bool relaunch_threads = true)
+  {
+    this->common_parallel_for(begin, end, step, f, relaunch_threads, true);
+  }
 
-    while (begin < end) {
-      this->enqueue(my_f, begin);
-      begin += step;
-    }
-
-    while (n_tasks.load()) {
-      try_run();
-    }
+  /// Runs a HP parallel loop in the pool and waits for its top-level children to finish execution
+  template<typename Index, typename F>
+  void hp_soft_parallel_for(Index begin, Index end, Index step, const F& f)
+  {
+    this->common_soft_parallel_for(begin, end, step, f, true);
   }
 
   /// \brief Active wait until all tasks complete
