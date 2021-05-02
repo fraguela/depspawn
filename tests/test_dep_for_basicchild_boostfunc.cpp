@@ -70,9 +70,7 @@ void g(int *ptr) {
 
 int main()
 { int i = 0; //i is in the stack
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
 
   //spawn(f, Ignore<int>(i)); //With this version h does not wait for f

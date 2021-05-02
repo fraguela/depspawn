@@ -43,9 +43,7 @@ void print(const Array<int , 1>& v, const char * msg = 0)
 
 int main()
 { int i, result;
-  
-  set_threads();
-  
+
   for (i = 0; i < 100; i++) {
     a(i) = i;
   }

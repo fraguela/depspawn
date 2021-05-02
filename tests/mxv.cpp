@@ -71,8 +71,6 @@ int main(int argc, char **argv)
 { int i, j;
   
   CHUNKS = (argc == 1) ? 4 : atoi(argv[1]);
-  
-  set_threads();
 
   for (i = 0; i < N; i++) {
     v(i) = i;

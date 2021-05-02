@@ -75,22 +75,20 @@ void subtasks_test(bool &test_ok)
 int main()
 {
   display();
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
-  
+
   spawn(add, x, 2, 1.5f); //Sets x to 2
   spawn(add, x, 1, 1.5f); //Sets x to 3
   spawn(add, y, 3, 0.1f); //Sets y to 2
   spawn(add, y, 2, 0.1f); //Sets y to 5
-  
+
   wait_for(y);
   bool test_ok = (y == 5);
   display();
-  
+
   spawn(add, y, 5, 0.1f); //Sets y to 10
-  
+
   wait_for(y);
   test_ok = test_ok && (y == 10);
   display();

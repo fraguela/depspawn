@@ -75,8 +75,7 @@ public:
 
 int main()
 {
-
-  set_threads();
+  std::cout << "Using " << get_num_threads() << " threads\n";
 
   spawn([](int &r, const int& i) { r = i + 1; LOG("setting " << r); }, tmpresult, 99);
   

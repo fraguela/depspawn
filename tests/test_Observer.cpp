@@ -83,9 +83,7 @@ int main()
   x = 0;
   
   std::cout << CLOCKS_PER_SEC << std::endl;
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
   
   { Observer o;

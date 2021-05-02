@@ -61,9 +61,7 @@ int main()
     std::cout << "TEST SKIPPED (requires 2 HW threads)\n";
     return 0;
   }
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
 
   spawn(f, i);      //f runs for long. Sets i=10

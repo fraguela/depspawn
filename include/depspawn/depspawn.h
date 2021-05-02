@@ -121,7 +121,7 @@ namespace depspawn {
     using Pool_t = DummyLinkedListPool<T, SCALABLE>;
 #else
     template<typename T, bool SCALABLE>
-    using Pool_t = LinkedListPool<T, SCALABLE>;
+    using Pool_t = LinkedListPool<T, true, SCALABLE>;
 #endif
     
     /** \name Lambda function to std::function translator

@@ -72,8 +72,6 @@ int main(int argc, char **argv)
   assert(!(M % CHUNKS));
   
   printf("Using %d chunks\n", CHUNKS);
-  
-  set_threads();
 
   for (i = 0; i < N; i++) {
     v[i] = i;

@@ -103,9 +103,7 @@ void g() {
 
 
 int main()
-{
-  set_threads();
-  
+{  
   t0 = std::chrono::high_resolution_clock::now();
   
   g();  //Normal call to g. It could also be a spawn, the problem is the same

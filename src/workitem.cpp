@@ -17,7 +17,7 @@
 namespace depspawn {
   
   namespace internal {
-    
+
     Workitem::Workitem(arg_info *iargs, int nargs) :
     status(Status_t::Filling), optFlags_(0),
     guard_(0), nargs_(static_cast<char>(nargs)),
@@ -52,7 +52,7 @@ namespace depspawn {
     void Workitem::insert_in_worklist(AbstractRunner* itask)
     { Workitem* p;
       arg_info *arg_p, *arg_w;
-      
+
       //Save original list of arguments
       int nargs = static_cast<int>(nargs_);
       arg_info* argv[nargs+1];
@@ -83,11 +83,9 @@ namespace depspawn {
       task = itask;
       
       Workitem* ancestor = father;
-      
-      p = worklist;
-      do {
-        next = p;
-      } while(!worklist.compare_exchange_weak(p, this));
+
+      next = worklist.load(std::memory_order_relaxed);
+      while(!worklist.compare_exchange_weak(next, this));
 
       for(p = next; p != nullptr; p = p->next) {
 
@@ -113,7 +111,7 @@ namespace depspawn {
             arg_p = p->args; // preexisting workitem
             arg_w = argv[0]; // New workitem
             while(arg_p && arg_w) {
-              
+
               const bool conflict = arg_w->is_array()
               ? ( (arg_p->addr == arg_w->addr) && arg_w->overlap_array(arg_p) )
               : ( (arg_p->wr || arg_w->wr) && overlaps(arg_p, arg_w) );
@@ -328,12 +326,12 @@ namespace depspawn {
       DEPSPAWN_PROFILEDEFINITION(const auto t0 = std::chrono::high_resolution_clock::now());
       //DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
       DEPSPAWN_PROFILEACTION(profile_erases++);
-      
+
       Workitem *lastkeep = worklist;
       Workitem *last_workitem, *p;
       
       unsigned int deletable_workitems = 0;
-      
+
       for(p = lastkeep->next; p != nullptr; p = p->next) {
         
         if( p->status != Status_t::Deallocatable ) {
@@ -357,16 +355,18 @@ namespace depspawn {
         
         last_workitem = p;
       }
-      
+
       if (lastkeep->next != nullptr) {
         Deletable_Sublists.emplace_back(lastkeep->next, last_workitem);
         lastkeep->next = nullptr;
         //DEPSPAWN_PROFILEACTION(profile_deleted_workitems += deletable_workitems);
       }
-      
+
+      std::atomic_thread_fence(std::memory_order_seq_cst);
+
       //DEPSPAWN_PROFILEACTION(printf("D %u (%u) (%u) %c\n", profile_deleted_workitems, (unsigned)Dones.size(), (unsigned)Deletable_Sublists.size(), ));
-      
-      for(p = worklist; p != worklist_wait_hint; p = p->next) {
+
+      for(p = worklist.load(); p != worklist_wait_hint; p = p->next) {
         
         while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
         
@@ -375,12 +375,12 @@ namespace depspawn {
         }
         
       }
-      
+
       for (int i = 0; i < Dones.size(); i++) {
         while (Dones[i]->status == Status_t::Done) { }
       }
       Dones.clear(); //Needed because it is static!
-      
+
       for (int i = 0; i < Deletable_Sublists.size(); i++) {
         Workitem * const begin = Deletable_Sublists[i].first;
         Workitem * const end = Deletable_Sublists[i].second;
@@ -442,4 +442,3 @@ namespace depspawn {
   } //namespace internal
   
 } //namespace depspawn
-

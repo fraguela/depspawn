@@ -112,10 +112,8 @@ void init_data()
 
 int main(int argc, char **argv)
 {
-  
+
   CHUNKS = (argc == 1) ? 4 : atoi(argv[1]);
-  
-  set_threads();
 
   init_data();
   

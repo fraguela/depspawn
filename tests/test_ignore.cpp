@@ -91,9 +91,7 @@ int main()
   }
   
   std::cout << "i is located at " << (void *)&i << std::endl;
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
 
   spawn(f, i, 1);

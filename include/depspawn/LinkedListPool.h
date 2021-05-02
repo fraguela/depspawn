@@ -57,11 +57,29 @@ struct PoolAllocator_malloc_free
 };
 
 /// \brief Pool implemented by means of a linked list with atomic operations
-/// \tparam T type of the objects of the pool. They must have a field <tt>T * next</tt>
+/// \tparam T          type of the objects of the pool. They must have a field <tt>T * next</tt>
+/// \tparam ALLOC_ONCE if true will only build the objects when they are first created and it will
+///                    never invoke a destructor on them. If false, contruction/destruction
+///                    happens upon request from/return to the pool.
 /// \tparam SCALABLE Whether the heap is managed with std::malloc/free (false) or tbb::scalable_malloc/scalable_free (true)
-template <typename T, bool SCALABLE>
+template <typename T, bool ALLOC_ONCE, bool SCALABLE>
 class LinkedListPool {
-  
+
+  static constexpr intptr_t H_MASK = 0xFFFF000000000000ULL;
+  static constexpr intptr_t L_MASK = 0x0000FFFFFFFFFFFFULL;
+  static constexpr intptr_t H_INCR = 0x0001000000000000ULL;
+
+  /// Remove index from ptr
+  static constexpr T* clean_ptr(T* const p) noexcept {
+    return (T*) ((intptr_t)p & L_MASK);
+  }
+
+  /// Build new ptr with index
+  /// \internal Assumes high 16 bits of new_node are 0. Otherwise call clean_ptr on it before.
+  static constexpr T* next_ptr(T* const new_node, T* const cur_head) noexcept {
+    return (T*) ((intptr_t)new_node | (((intptr_t)cur_head + H_INCR) & H_MASK));
+  }
+
   typedef std::vector<T *> vector_t;
   
   vector_t v_;            ///< Stores all the chunks allocated by this pool
@@ -79,7 +97,9 @@ class LinkedListPool {
     T * p = h;
     do {
       baseptr += minTSize_;
-      new (p) T();
+      if (ALLOC_ONCE) {
+        new (p) T();
+      }
       p->next = reinterpret_cast<T *>(baseptr); //invalid for p=q. Will be corrected during linking
       p = static_cast<T *>(p->next);
     } while (baseptr <= endptr);
@@ -88,31 +108,26 @@ class LinkedListPool {
     
     v_.push_back(h);
 
-    freeLinkedList(h, q);
+    freeLinkedList(h, q, true);
     
     pool_mutex_.clear(std::memory_order_release);
   }
 
-  /* Whether there are at leat \c n elements in the list that starts in \c p,
-     returning in \c q the last element of such sub-list.
-   
-      Not in use but should be ok
-   
-   \pre p != nullptr
-   \pre n >= 1
-   
-  bool length(T *p, int n, T* &q) const {
-    
+  /// \brief Get an item from the pool without invoking a constructor
+  T* intl_malloc()
+  {
+    T* ret = head_.load(std::memory_order_relaxed);
     do {
-      q = p;
-      p = p->next;
-      --n;
-    } while (n && *p);
+      while(clean_ptr(ret) == nullptr) {
+        allocate();
+        ret = head_.load(std::memory_order_relaxed);
+      }
+    } while(!head_.compare_exchange_weak(ret, next_ptr(clean_ptr(static_cast<T *>(clean_ptr(ret)->next)), ret)));
     
-    return !n;
+    //Notice that we do not make a new (ret) T()
+    return clean_ptr(ret);
   }
-  */
-  
+
 public:
   
   /// \brief Constructor
@@ -127,6 +142,8 @@ public:
   }
 
   /// \brief Destructor
+  /// \internal If ALLOC_ONCE is false, object destructors are not needed.
+  ///           If it is true, we currenly assume the destructor is not necessary
   ~LinkedListPool()
   {
     typename vector_t::const_iterator const itend = v_.end();
@@ -135,19 +152,28 @@ public:
   }
 
   /// Return an item to the pool
-  void free(T* const datain) noexcept
+  void free(T* const datain) noexcept(ALLOC_ONCE)
   {
+    if (!ALLOC_ONCE) {
+      datain->~T();
+    }
+
     datain->next = head_.load(std::memory_order_relaxed);
-    //Casting useful when T derives from a type U that contains the U *next field
-    while(!head_.compare_exchange_weak((T*&)datain->next, datain));
+    while(!head_.compare_exchange_weak(datain->next, next_ptr(datain, datain->next)));
   }
   
   /// Return a linked list of items to the pool when the end is known
-  void freeLinkedList(T* const datain, T* const last_datain) noexcept
+  void freeLinkedList(T* const datain, T* const last_datain, const bool no_dealloc = false) noexcept(ALLOC_ONCE)
   {
+    if (!ALLOC_ONCE && !no_dealloc) {
+      last_datain->next = nullptr;
+      for (T* p = datain; p != nullptr; p = p->next) {
+        p->~T();
+      }
+    }
+
     last_datain->next = head_.load(std::memory_order_relaxed);
-    //Casting useful when T derives from a type U that contains the U *next field
-    while(!head_.compare_exchange_weak((T*&)last_datain->next, datain));
+    while(!head_.compare_exchange_weak(last_datain->next, next_ptr(datain, last_datain->next)));
   }
   
   /// Return a linked list of items to the pool when the end is unknown
@@ -156,7 +182,11 @@ public:
     T* p = datain;
     
     do {
-      
+
+      if (!ALLOC_ONCE) {
+        p->~T();
+      }
+
       if (p->next == nullptr) {
         break;
       } else {
@@ -165,7 +195,7 @@ public:
       
     } while (1);
     
-    freeLinkedList(datain, p);
+    freeLinkedList(datain, p, true);
   }
 
   /// Return a linked list of items to the pool, when each one needs to do some clean up
@@ -175,9 +205,13 @@ public:
     T* p = datain;
     
     do {
-      
+
       f(p);
-      
+
+      if (!ALLOC_ONCE) {
+        p->~T();
+      }
+
       if (p->next == nullptr) {
         break;
       } else {
@@ -186,54 +220,54 @@ public:
       
     } while (1);
     
-    freeLinkedList(datain, p);
+    freeLinkedList(datain, p, true);
   }
   
-  /// \brief Get an item from the pool without invoking a constructor
-  /// \internal May suffer ABA problem giving place to memory leaks
+  /// Get an item from the pool and built it with the default constructor, if neccessary
   T* malloc()
-  { T *ret, *next_val;
-    
-    ret = head_.load(std::memory_order_relaxed);
-    do {
-      while(ret == nullptr) {
-        allocate();
-        ret = head_.load(std::memory_order_relaxed);
-      }
-      next_val = static_cast<T *>(ret->next);
-    } while(!head_.compare_exchange_weak(ret, next_val));
-    
-    //Notice that we do not make a new (ret) T()
-    return ret;
+   {
+     T * const ret = this->intl_malloc();
+     if (!ALLOC_ONCE) {
+       new (ret) T();
+     }
+     return ret;
+   }
+
+   /// Get an item from the pool and built it with a custom constructor
+   template<typename... Args>
+   T* malloc(Args&&... args)
+   {
+     T * const ret = this->intl_malloc();
+     new (ret) T(std::forward<Args>(args)...);
+     return ret;
+   }
+
+  /*
+  void print_content() const
+  {
+    fprintf(stderr, "Pool content:\n");
+    T* pf = head_.load(std::memory_order_relaxed);
+    for(T* p = clean_ptr(pf);
+        p != nullptr;
+        pf = p->next, p = clean_ptr(pf)) {
+      fprintf(stderr, "%4lx | %p\n", (size_t)pf >> 48, p);
+    }
+    fprintf(stderr, "------\n");
   }
 
-  /// Get an item from the pool, initializing it with a constructor
-  template<typename... Args>
-  T* malloc(Args&&... args)
+  bool contains(T* const q) const
   {
-    T * const ret = this->malloc();
-    new (ret) T(std::forward<Args>(args)...);
-    return ret;
-  }
-  
-  /* Not in use, but should be ok.
-  T* malloc(int n)
-  { T *ret, *q, *next_val;
-   
-    ret = head_;
-    do {
-      while((ret == nullptr) || !length(ret, n, q)) {
-        allocate();
-        ret = head_;
+    for(T* p = clean_ptr(head_.load(std::memory_order_relaxed));
+        p != nullptr;
+        p = clean_ptr(p->next)) {
+      if (p == q) {
+        return true;
       }
-      next_val = static_cast<T *>(q->next);
-    } while(!head_.compare_exchange_weak(ret, next_val)); //while(head_.compare_and_swap(next_val, ret) != ret);
-    
-    q->next = nullptr;
-    return ret;
+    }
+    return false;
   }
   */
-  
+
 };
 
 #endif // __LINKEDLISTPOOL_H

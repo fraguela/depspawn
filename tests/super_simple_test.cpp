@@ -30,12 +30,6 @@ void f(int &i) {
 
 int main()
 { int i = 0;
-  
-  LOG("pre-set_threads");
-
-  set_threads();
-
-  LOG("post-set_threads");
 
   t0 = std::chrono::high_resolution_clock::now();
   

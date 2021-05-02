@@ -48,8 +48,6 @@ int main()
 
   // Compute the histogram in parallel
   hist_par.fill(0);
-  
-  set_threads();
 
   for (int i = 0; i < N; i++) {
     spawn(incr, hist_par[v[i]]);

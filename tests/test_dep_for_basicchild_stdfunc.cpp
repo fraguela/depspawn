@@ -84,8 +84,6 @@ void g2(int *ptr)
 
 int main()
 { int i;
-
-  set_threads();
   
   ////// FIRST TEST USING A REGULAR FUNCTION
   

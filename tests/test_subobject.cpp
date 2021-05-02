@@ -80,9 +80,7 @@ int main()
   s.b = 0;
   
   std::cout << CLOCKS_PER_SEC << std::endl;
-  
-  set_threads();
-  
+
   t0 = std::chrono::high_resolution_clock::now();
   
   spawn(f, s.a); //Sets s.a to 2

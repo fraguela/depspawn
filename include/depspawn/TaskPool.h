@@ -66,14 +66,13 @@ private:
   const size_t queue_size_;
   boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> queue_;
   boost::lockfree::queue<Task *, boost::lockfree::fixed_sized<true>> hp_queue_;
-  LinkedListPool<Task, false> task_pool_;
+  LinkedListPool<Task, false, false> task_pool_;
   volatile bool finish_;          ///< Whether wait for task pool to finish has been requested
   std::atomic<int> busy_threads_; ///< Becomes 0 only when all the pool threads run out of work
   std::function<void()> idle_func_; ///< Function to run when there are no tasks
 
   void free(Task * const p)
   {
-    p->~Task();
     task_pool_.free(p);
   }
 
