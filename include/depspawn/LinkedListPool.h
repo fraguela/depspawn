@@ -167,13 +167,13 @@ public:
   {
     if (!ALLOC_ONCE && !no_dealloc) {
       last_datain->next = nullptr;
-      for (T* p = datain; p != nullptr; p = p->next) {
+      for (T* p = datain; p != nullptr; p = static_cast<T *>(p->next)) {
         p->~T();
       }
     }
 
     last_datain->next = head_.load(std::memory_order_relaxed);
-    while(!head_.compare_exchange_weak(last_datain->next, next_ptr(datain, last_datain->next)));
+    while(!head_.compare_exchange_weak(reinterpret_cast<T*&>(last_datain->next), next_ptr(datain, static_cast<T *>(last_datain->next))));
   }
   
   /// Return a linked list of items to the pool when the end is unknown
