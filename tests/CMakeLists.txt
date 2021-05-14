@@ -18,9 +18,9 @@ link_libraries( depspawn )
 
 if(DEPSPAWN_USE_TBB)
 	link_libraries( tbb tbbmalloc )
-else()
-	link_libraries( pthread )
 endif()
+
+link_libraries( pthread )
 
 if(${UNIX})
   if(${APPLE})
