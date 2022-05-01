@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  Distributed under the MIT License. (See accompanying file LICENSE)
 */
@@ -262,10 +262,15 @@ namespace depspawn {
         std::atomic_thread_fence(std::memory_order_seq_cst);
       
         erase = erase || ((((((intptr_t)current)>>8)&0xfff) < 32) && !ObserversAtWork && !eraser_assigned && eraser_assigned.compare_exchange_weak(erase, true));
-      
-        worklist_wait_hint = worklist;
+
+        worklist_wait_hint = worklist.load(std::memory_order_seq_cst);
+#ifdef __arm64__
+        // Make sure status is seen in insert_in_worklist upon insertion in worklist
+        // See semantics of std::atomic_thread_fence
+        while(!worklist.compare_exchange_weak(worklist_wait_hint, worklist_wait_hint));
+#endif
         //lastkeep = worklist_wait_hint;
-        
+
         for(p = worklist_wait_hint; p && p != this; p = p->next) { //wait until this, not current
       
           while(p->status == Status_t::Filling) {}
@@ -327,7 +332,7 @@ namespace depspawn {
       //DEPSPAWN_PROFILEDEFINITION(unsigned int profile_deleted_workitems = 0);
       DEPSPAWN_PROFILEACTION(profile_erases++);
 
-      Workitem *lastkeep = worklist;
+      Workitem *lastkeep = worklist.load();
       Workitem *last_workitem, *p;
       
       unsigned int deletable_workitems = 0;
@@ -366,7 +371,14 @@ namespace depspawn {
 
       //DEPSPAWN_PROFILEACTION(printf("D %u (%u) (%u) %c\n", profile_deleted_workitems, (unsigned)Dones.size(), (unsigned)Deletable_Sublists.size(), ));
 
-      for(p = worklist.load(); p != worklist_wait_hint; p = p->next) {
+      p = worklist.load(std::memory_order_seq_cst);
+#ifdef __arm64__
+        // Make sure changes are seen in insert_in_worklist upon insertion in worklist
+        // See semantics of std::atomic_thread_fence
+        while(!worklist.compare_exchange_weak(p, p));
+#endif
+
+      for( ; p != worklist_wait_hint; p = p->next) {
         
         while(p->status == Status_t::Filling) { } // Waits until work p has its dependencies
         

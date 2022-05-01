@@ -1,14 +1,12 @@
 
 #DepSpawn: Data Dependent Spawn library
-#Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+#Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
 #
 # Distributed under the MIT License. (See accompanying file LICENSE)
 
 # \file     CMakeLists.txt
 # \author   Carlos H. Gonzalez  <cgonzalezv@udc.es>
 # \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
-
-cmake_minimum_required( VERSION 2.8.7 )
 
 #TODO: Could be protected with an #ifndef... #define... #endif
 # add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/include/depspawn/fixed_defines.h

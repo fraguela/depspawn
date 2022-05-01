@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  Distributed under the MIT License. (See accompanying file LICENSE)
 */
@@ -32,16 +32,16 @@ class ThreadPool {
   std::vector<std::thread> threads_;
   std::mutex mutex_;
   std::condition_variable cond_var_;
-  std::function<void()> func_;  //< Function simultaneously run by the active threads in the pool
-  volatile int nthreads_in_use_; //< Number of threads that participate in parallel executions
+  std::function<void()> func_;  ///< Function simultaneously run by the active threads in the pool
+  volatile int nthreads_in_use_; ///< Number of threads that participate in parallel executions
   volatile int count_;
   volatile bool ready_, finish_;
 
   void main()
   {
-    do {
+    while (!finish_) {
       std::unique_lock<std::mutex> my_lock(mutex_);
-      while (!ready_) {
+      while (!ready_ && !finish_) {
         cond_var_.wait(my_lock);
       }
       const int my_id = count_++;
@@ -49,18 +49,18 @@ class ThreadPool {
         ready_ = false;
       }
       my_lock.unlock();
-      
+
       if (!finish_ && (my_id < nthreads_in_use_)) {
         func_();
       }
-      
-      while(ready_) {} // ensure all threads restarted
+
+      while(ready_ && !finish_) {} // ensure all threads restarted
       my_lock.lock();
       count_--;
       my_lock.unlock();
-      
+
       //wait();
-    } while (!finish_);
+    }
   }
 
 public:

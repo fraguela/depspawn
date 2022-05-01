@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  Distributed under the MIT License. (See accompanying file LICENSE)
 */
@@ -19,7 +19,7 @@
 
 using namespace depspawn;
 
-typedef float Type;
+typedef double Type;
 
 #define M 6000
 #define N 6000
@@ -59,6 +59,7 @@ bool test()
       f += mxp[i * N + j] * vp[j];
     if ( (f + (Type)1) != rp[i]) {
       std::cerr << "Error at result " << i << ' ' << (f + (Type)1) << "!=" << rp[i] << std::endl;
+      std::cerr << "Difference=" << ( (f + (Type)1) - rp[i]) << std::endl;
       return false;
     }
   }

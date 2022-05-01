@@ -1,6 +1,6 @@
 
 #DepSpawn: Data Dependent Spawn library
-#Copyright (C) 2012-2021 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+#Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
 #
 # Distributed under the MIT License. (See accompanying file LICENSE)
 
@@ -8,8 +8,6 @@
 # \brief    CMakeLists.txt for the tests of the project
 # \author   Carlos H. Gonzalez  <cgonzalezv@udc.es>
 # \author   Basilio B. Fraguela <basilio.fraguela@udc.es>
-
-cmake_minimum_required( VERSION 2.8.7 )
 
 add_definitions( -DBZ_THREADSAFE -DBZ_THREADSAFE_USE_TBB )
 
@@ -36,15 +34,16 @@ set( NOBLITZTESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_std
 
 set( BLITZTESTBINARIES mxm mxv test_blitz_array testreduction1_fix1 )
 
-set( NOTESTBINARIES testreduction1_orix mxv_basic_orix test_ignore test_array_sizes bench_spawn bench_sched_perf fib )
+set( NOTESTBINARIES mxv_basic_orix test_ignore test_array_sizes bench_spawn bench_sched_perf fib )
 
+set( BLITZNOTESTBINARIES testreduction1_orix )
 
-foreach(b ${NOBLITZTESTBINARIES} ${BLITZTESTBINARIES} ${NOTESTBINARIES} )
+foreach(b ${NOBLITZTESTBINARIES} ${NOTESTBINARIES} ) #Temporarily removed BLITZ stuff until ported for newer compilers
   add_executable( ${b} ${b}.cpp )
 endforeach(b)
 
 add_custom_target(check)
-foreach(b ${NOBLITZTESTBINARIES} ${BLITZTESTBINARIES} )
+foreach(b ${NOBLITZTESTBINARIES} ) #Temporarily removed BLITZTESTBINARIES until ported for newer compilers
   
   add_custom_command(TARGET check PRE_BUILD COMMAND ${CMAKE_COMMAND} -E echo test ${b} :)
   if(${APPLE})                   
@@ -57,3 +56,4 @@ foreach(b ${NOBLITZTESTBINARIES} ${BLITZTESTBINARIES} )
 
 endforeach(b)
 add_custom_command(TARGET check PRE_BUILD COMMAND echo "*" TESTS DONE. SUCCESSFUL)
+

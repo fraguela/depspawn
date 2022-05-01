@@ -7,7 +7,7 @@ These instructions can also be found in the library [documentation](http://fragu
 
 
  * A C++ compiler that supports C++11
- * [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
+ * [CMake](https://cmake.org) 3.1.3 or above
  *  Optional: [Intel® Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
  * Optional: [Boost](http://www.boost.org) v1.48 or above (if not available DepSpawn will install the subset it uses)
  * Optional: [Doxygen](http://www.doxygen.org) for building its documentation
