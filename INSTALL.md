@@ -63,15 +63,18 @@ If one plans to use Intel TBB as backend for must DepSpawn, it be configured bef
    If CMake cannot find [Boost](http://www.boost.org) it will warn that it will use and install the subset it requires. Just press `e` to exit the help.
 
 7. Provide the values you wish for the variables that appear in the screen. The most relevant ones are:
-	- `CMAKE_BUILD_TYPE` : String that specifies the build type. Its possible values are empty, Debug, Release, RelWithDebInfo and MinSizeRel.
+	- `CMAKE_BUILD_TYPE` : String that specifies the build type. Its possible values are empty, `Debug`, `Release`, `RelWithDebInfo` and `MinSizeRel`.
 	- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
-		
-	 The variables that begin with `DEPSPAWN` change internal behaviors in the runtime of the library. Thus in principle they are of interest only to the developers of the library, although users can play with them to see how they impact in their applications. They are:
-	- `DEPSPAWN_USE_TBB` : Controls whether to use as backend  the Intel TBB, if `ON`, or a C++ thread pool, otherwise.
-	- `DEPSPAWN_DUMMY_POOL` : Boolean that if `ON` turns off the usage of pools by the library to manage the memory of its internal objects.
-    - `DEPSPAWN_FAST_START` : If this boolean is `ON`, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
-    - `DEPSPAWN_PROFILE` : When this boolean is `ON` the library gathers statistics about its internal operations.
-    - `DEPSPAWN_SCALABLE_POOL` : This boolean controls whether the library managed its memory by means of the `tbbmalloc` library (if `ON`) or the standard C++ library (if `OFF`).
+	- ` DEPSPAWN_BLITZ` : String that specifies the Blitz library to use. Its values can be:
+		- `No` : No preparation to use any version of Blitz or related tests.
+		- `Old`: Use provided `depspawn-blitz-0.10` library. DepSpawn will test its usage with this library, but the library itself will not be built. The user is responsible for that. This library is known to break for recent compilers.
+		- `New`: Use provided `depspawn-blitz-1.0.2`. DepSpawn will build, install and test the library using the same ` CMAKE_INSTALL_PREFIX` as DepSpawn for the installation.  
+	- Most variables that begin with `DEPSPAWN` change internal behaviors in the runtime of the library. Thus in principle they are of interest only to the developers of the library, although users can play with them to see how they impact in their applications. They are:
+		- `DEPSPAWN_USE_TBB` : Controls whether to use as backend  the Intel TBB, if `ON`, or a C++ thread pool, otherwise.
+		- `DEPSPAWN_DUMMY_POOL` : Boolean that if `ON` turns off the usage of pools by the library to manage the memory of its internal objects.
+    	- `DEPSPAWN_FAST_START` : If this boolean is `ON`, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
+    	- `DEPSPAWN_PROFILE` : When this boolean is `ON` the library gathers statistics about its internal operations.
+    	- `DEPSPAWN_SCALABLE_POOL` : This boolean controls whether the library managed its memory by means of the `tbbmalloc` library (if `ON`) or the standard C++ library (if `OFF`).
 8. When you are done, press `c` to re-configure cmake with the new values. If [Boost](http://www.boost.org) is missing you will get the same warning. Press `e` to exit the help.
 9. Press `g` to generate the files that will be used to build DepSpawn and exit cmake.
 10. The rest of this explanation assumes that UNIX makefiles were generated in the previous step. 
