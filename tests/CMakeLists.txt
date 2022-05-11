@@ -11,7 +11,7 @@
 
 add_definitions( -DBZ_THREADSAFE -DBZ_THREADSAFE_USE_TBB )
 
-include_directories( ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/depspawn-blitz-0.10 )
+include_directories( ${PROJECT_SOURCE_DIR}/src )
 link_libraries( depspawn )
 
 if(DEPSPAWN_USE_TBB)
@@ -30,7 +30,25 @@ if(${UNIX})
   endif(${APPLE})
 endif(${UNIX})
 
-set( NOBLITZTESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync histogram )
+if (NOT DEPSPAWN_BLITZ )
+  set(DEPSPAWN_BLITZ No CACHE STRING
+      "Options are: No, Old, New"
+      FORCE)
+endif()
+string( TOLOWER "${DEPSPAWN_BLITZ}" depspawn_blitz )
+if(depspawn_blitz STREQUAL "new")
+	include(ExternalProject)
+	ExternalProject_Add(depspawn_blitz 
+	                    SOURCE_DIR ${CMAKE_SOURCE_DIR}/depspawn-blitz-1.0.2
+					    INSTALL_DIR ${CMAKE_INSTALL_PREFIX}
+						CMAKE_ARGS -D CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+					   )
+	include_directories( ${CMAKE_INSTALL_PREFIX}/include )
+elseif(depspawn_blitz STREQUAL "old")
+	include_directories( ${PROJECT_SOURCE_DIR}/depspawn-blitz-0.10 )
+endif()
+
+set( TESTBINARIES super_simple_test mxv_basic test_dep_for_basicchild_stdfunc test_dep_for_basicchild_boostfunc test_by_value test_lambda test_subobject test_wait_children_dep test_out_scope test_donot_wait_for_ancestors test_int test_array test_wait_for test_Observer test_depspawn_sync histogram )
 
 set( BLITZTESTBINARIES mxm mxv test_blitz_array testreduction1_fix1 )
 
@@ -38,12 +56,19 @@ set( NOTESTBINARIES mxv_basic_orix test_ignore test_array_sizes bench_spawn benc
 
 set( BLITZNOTESTBINARIES testreduction1_orix )
 
-foreach(b ${NOBLITZTESTBINARIES} ${NOTESTBINARIES} ) #Temporarily removed BLITZ stuff until ported for newer compilers
+foreach(b ${TESTBINARIES} ${NOTESTBINARIES}) 
   add_executable( ${b} ${b}.cpp )
 endforeach(b)
 
+if(NOT depspawn_blitz STREQUAL "no")
+	foreach(b ${BLITZTESTBINARIES} ${BLITZNOTESTBINARIES} )
+	  add_executable( ${b} ${b}.cpp )
+	endforeach(b)
+	list(APPEND TESTBINARIES ${BLITZTESTBINARIES})
+endif()
+
 add_custom_target(check)
-foreach(b ${NOBLITZTESTBINARIES} ) #Temporarily removed BLITZTESTBINARIES until ported for newer compilers
+foreach(b ${TESTBINARIES} )
   
   add_custom_command(TARGET check PRE_BUILD COMMAND ${CMAKE_COMMAND} -E echo test ${b} :)
   if(${APPLE})                   
