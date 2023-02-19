@@ -65,7 +65,7 @@ If one plans to use Intel TBB as backend for must DepSpawn, it be configured bef
 7. Provide the values you wish for the variables that appear in the screen. The most relevant ones are:
 	- `CMAKE_BUILD_TYPE` : String that specifies the build type. Its possible values are empty, `Debug`, `Release`, `RelWithDebInfo` and `MinSizeRel`.
 	- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
-	- ` DEPSPAWN_BLITZ` : String that specifies the Blitz library to use. Its values can be:
+	- `DEPSPAWN_BLITZ` : String that specifies the Blitz library to use. Its values can be:
 		- `No` : No preparation to use any version of Blitz or related tests.
 		- `Old`: Use provided `depspawn-blitz-0.10` library. DepSpawn will test its usage with this library, but the library itself will not be built. The user is responsible for that. This library is known to break for recent compilers.
 		- `New`: Use provided `depspawn-blitz-1.0.2`. DepSpawn will build, install and test the library using the same ` CMAKE_INSTALL_PREFIX` as DepSpawn for the installation.  

@@ -67,15 +67,15 @@ Please follow the <a class="el" href="pages.html">list of topics</a> covered thi
 
  DepSpawn requires:
  - A C++ compiler that supports C++11
- - [Intel (R) Threading Building Blocks (TBB)](http://threadingbuildingblocks.org) v3.0 update 6 or above (v4.3 update 6 for Mac OS X)
  - [CMake](https://cmake.org) 2.8.7 or above (3.1.3 for Mac OS X)
+ - Optional: Intel (R) Threading Building Blocks (TBB) v3.0 update 6 or above (v4.3 update 6 for Mac OS X). <b>Please notice this is not the new oneTBB library</b>.
  - Optional: [Boost](http://www.boost.org) v1.48 or above (if not available DepSpawn will install the subset it uses)
  - Optional: [Doxygen](http://www.doxygen.org) for building its documentation
 
 \section sec_insprocedure Procedure
 
 Follow these steps:
--# Make sure TBBs are automatically found by your compiler following the steps described in \ref page_tbb_config.
+-# If you wanto to use TBB, make sure it is automatically found by your compiler following the steps described in \ref page_tbb_config.
 
 -# Unpack the DepSpawn tarball (e.g. \c depspawn.tar.gz)
 
@@ -109,10 +109,15 @@ Follow these steps:
 		- `CMAKE_INSTALL_PREFIX` : Directory where DepSpawn will be installed
 		
 	 The variables that begin with `DEPSPAWN` change internal behaviors in the runtime of the library. Thus in principle they are of interest only to the developers of the library, although users can play with them to see how they impact in their applications. They are:
+	    - `DEPSPAWN_BLITZ` : String that specifies the Blitz library to use. Its values can be:
+                - `No` : No preparation to use any version of Blitz or related tests.
+                - `Old`: Use provided `depspawn-blitz-0.10` library. DepSpawn will test its usage with this library, but the library itself will not be built. The user is responsible for that. This library is known to break for recent compilers.
+                - `New`: Use provided `depspawn-blitz-1.0.2`. DepSpawn will build, install and test the library using the same ` CMAKE_INSTALL_PREFIX` as DepSpawn for the installation.
 	    - `DEPSPAWN_DUMMY_POOL` : Boolean that if \c ON turns off the usage of pools by the library to manage the memory of its internal objects.
 		- `DEPSPAWN_FAST_START` : If this boolean is \c ON, when a thread that is spawning tasks detects that there are too many ready pending tasks waiting to be executed, it stops and executes one of them before resuming its current task.
 		- `DEPSPAWN_PROFILE` : When this boolean is \c ON the library gathers statistics about its internal operations.
 		- `DEPSPAWN_SCALABLE_POOL` : This boolean controls whether the library managed its memory by means of the \c tbbmalloc library (if \c ON) or the standard C++ library (if \c OFF).
+	    - `DEPSPAWN_USE_TBB` :  This boolean controls whether DepSpawn relies on Intel TBB, if \c ON, or on C++11 threads, if \c OFF.
 	-# When you are done, press \c c to re-configure cmake with the new values. If [Boost](http://www.boost.org) is missing you will get the same warning. Press \c e to exit the help.
 	-# Press \c g to generate the files that will be used to build DepSpawn and exit cmake.
 -# The rest of this explanation assumes that UNIX makefiles were generated in the previous step. 
@@ -140,6 +145,8 @@ Follow these steps:
 /**
 \page page_tbb_config TBB configuration
 
+<b>Please notice that this version of DepSpawn can rely on the well-known Intel (R) Threading Building Blocks (TBB), but not on the new oneTBB library</b>.
+
 TBBs require to set up some environment variables both to be compiled and to be used by an application during its execution. This usually requires executing the script 
 	- `${TBBROOT}/bin/tbbvars.sh` if your shell is `bash`/`ksh`, or
 	- `${TBBROOT}/bin/tbbvars.csh` if your shell is `csh`
@@ -161,23 +168,23 @@ TBBs require to set up some environment variables both to be compiled and to be 
 \page page_compiling_running Compiling and running
 
  Once we have installed DepSpawn, we are ready to test it in an application. For this purpose we will use the simple example code found in `examples/test_subobject.cpp`. In order to compile a DepSpawn application, we need to:
- -# Make sure the TBB environment is correctly set up, which is achieved following the steps described in \ref page_tbb_config
+ -# If you want to use the TBB, make sure its environment is correctly set up, which is achieved following the steps described in \ref page_tbb_config
  -# Since DepSpawn relies on C++11, if our compiler requires some flag to support it (typically `-std=c++0x` or `-std=c++11`), we must apply it
  -# Tell the compiler where to find the DepSpawn headers using the `-I` flag
  -# Tell the compiler where to find the DepSpawn library using the `-L` flag
- -# Link with DepSpawn (`-ldepspawn`) and the TBB (`-ltbb`)
+ -# Link with DepSpawn (`-ldepspawn`) and, if desired, with the TBB (`-ltbb`)
  -# If the `DEPSPAWN_SCALABLE_POOL` was set to `ON` when the library was compiled (see \ref page_installation), link also with `-ltbbmalloc`
  
  So if for example DepSpawn has been installed in `/usr/local` and our compiler does not automatically use `/usr/local/include` and `/usr/local/lib` to find header files and libraries, respectively, then `test_subobject.cpp` would be compiled using `g++` with the command
  
       g++ -std=c++11 -I/usr/local/include -o test_subobject test_subobject.cpp -L/usr/local/lib -ldepspawn -ltbb
 	
- The execution of our application only requires that the TBB environment is correctly set up, as some TBB components are dynamically linked, and the TBB configuration allows to find them. 
+ If DepSpawn relies on the TBB, the execution of our application requires that the TBB environment is correctly set up, as some TBB components are dynamically linked, and the TBB configuration allows to find them. 
 	
  The DepSpawn runtime recognizes the following environment variables:
 - `DEPSPAWN_NUM_THREADS` defines the number of threads to use in the execution.
 - `DEPSPAWN_TASK_QUEUE_LIMIT` defines the task queue limit as indicated by set_task_queue_limit(), described in \ref sec_api.
-- `DEPSPAWN_ENQUEUE_TASKS`, when defined, commands DepSpawn to launch tasks to execution using `tbb::task::enqueue()` instead of `tbb::task::spawn()`. Please read the TBB manual on the differences between these task spawning methods.
+- `DEPSPAWN_ENQUEUE_TASKS`, when defined, commands DepSpawn to launch tasks to execution using `tbb::task::enqueue()` instead of `tbb::task::spawn()` when the TBB is used. Please read the TBB manual on the differences between these task spawning methods.
 **/
 
 

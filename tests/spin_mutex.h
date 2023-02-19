@@ -1,6 +1,6 @@
 /*
  DepSpawn: Data Dependent Spawn library
- Copyright (C) 2012-2022 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
+ Copyright (C) 2012-2023 Carlos H. Gonzalez, Basilio B. Fraguela. Universidade da Coruna
  
  Distributed under the MIT License. (See accompanying file LICENSE)
 */
@@ -19,7 +19,7 @@ struct spin_mutex_t {
   
   std::atomic_flag lock_ = ATOMIC_FLAG_INIT;  ///< Controls access to the stored object
   
-  spin_mutex_t() noexcept
+ spin_mutex_t() noexcept
   { }
   
   void lock() noexcept {

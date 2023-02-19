@@ -127,7 +127,7 @@ A more detailed description of the DepSpawn programming model can be found in th
 
 DepSpawn has been compared to other frameworks with the same goals in the publication [A Comparison of Task Parallel Frameworks based on Implicit Dependencies in Multi-core Environments](https://scholarspace.manoa.hawaii.edu/handle/10125/41914), achieving very good results.
 
-More recently, its runtime and clean interface and semantics have been extended to support task-based dataflow computing in multicore clusters in the publication [Easy dataflow programming in clusters with UPC++ DepSpawn](http://gac.udc.es/~basilio/papers/Fraguela19_UPCxxDepSpawn.pdf) ([DOI 10.1109/TPDS.2018.2884716](http://dx.doi.org/10.1109/TPDS.2018.2884716)).
+More recently, its runtime and clean interface and semantics have been extended to support task-based dataflow computing in multicore clusters with our new [UPC++ DepSpawn](https://github.com/UDC-GAC/upcxx_depspawn) library.
 
 ### License
 
